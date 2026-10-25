@@ -77,9 +77,10 @@ Telegram commands allow only `a-z0-9_`, so container names are written with unde
    - **Telegram:** the token of a bot made with @BotFather.
 3. **Import** the three JSON files. In each workflow, select the Header Auth credential in the **Unraid API** HTTP nodes and the Telegram credential in the Telegram nodes.
 4. **Settings:** set `cfg.unraidUrl` (e.g. `https://192.168.1.10`) in each workflow's settings node (*Alert settings*, *Settings*, *Bot settings*). Use https: Unraid redirects http, and the POST body is lost. The HTTP nodes accept the self-signed certificate.
-5. **Bot workflow:** publish it, then message your bot. While `cfg.allowedChatIds` is empty, it only replies with your chat ID. Put that ID in **Bot settings › cfg.allowedChatIds** and in `cfg.telegramChatId` of the other two workflows.
-6. In the bot's **Run Docker workflow** node, pick *Unraid · Docker updates & actions*. Then publish the Docker and Alerts workflows.
-7. Optional: send @BotFather `/setcommands` with:
+5. **Public webhook:** Telegram delivers messages only to a public **HTTPS** URL. Publish n8n through a Cloudflare Tunnel or a reverse proxy, and set `N8N_WEBHOOK_URL=https://<that host>/` on the n8n container. Without it, the Telegram Trigger fails with *Bad request* (see [SUPPORT.md](SUPPORT.md)).
+6. **Bot workflow:** publish it, then message your bot. While `cfg.allowedChatIds` is empty, it only replies with your chat ID. Put that ID in **Bot settings › cfg.allowedChatIds** and in `cfg.telegramChatId` of the other two workflows.
+7. In the bot's **Run Docker workflow** node, pick *Unraid · Docker updates & actions*. Then publish the Docker and Alerts workflows.
+8. Optional: send @BotFather `/setcommands` with:
    ```text
    status - Health report with next steps
    info - Uptime, CPU, RAM, array usage

@@ -6,6 +6,8 @@
 
 ## Unreleased
 
+- Docs: Telegram needs a public HTTPS webhook. Set `N8N_WEBHOOK_URL`; on n8n 2.x, `WEBHOOK_URL` alone leaves test webhooks on the editor URL.
+
 - Community files: CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, issue and pull request templates.
 - CI (regenerate, check, tests, simulation) and a tag-based release workflow.
 - Buy Me a Coffee funding link.

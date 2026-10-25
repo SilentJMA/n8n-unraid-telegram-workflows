@@ -18,7 +18,7 @@
     },
     {
       "parameters": {
-        "content": "## Setup\n1. Create a bot with **@BotFather**, add a **Telegram** credential, select it in the trigger and the Telegram nodes.\n2. Select an **HTTP Header Auth** credential with Name `x-api-key` and Value = your Unraid API key (Settings › Management Access › API Keys, admin role) in the **Unraid API** node.\n3. **Bot settings**: set **cfg.unraidUrl**. Publish, then message the bot: it replies with your chat ID. Put it in **cfg.allowedChatIds** and in the other two workflows.\n4. In **Run Docker workflow** pick *Unraid · Docker updates & actions* (publish that one too).",
+        "content": "## Setup\n1. Create a bot with **@BotFather**, add a **Telegram** credential, select it in the trigger and the Telegram nodes.\n2. Select an **HTTP Header Auth** credential with Name `x-api-key` and Value = your Unraid API key (Settings › Management Access › API Keys, admin role) in the **Unraid API** node.\n3. n8n must be reachable at a public **HTTPS** URL with **N8N_WEBHOOK_URL=https://<host>/** set on its container, or Telegram rejects the trigger with *Bad request*. **Bot settings**: set **cfg.unraidUrl**. Publish, then message the bot: it replies with your chat ID. Put it in **cfg.allowedChatIds** and in the other two workflows.\n4. In **Run Docker workflow** pick *Unraid · Docker updates & actions* (publish that one too).",
         "width": 560,
         "height": 420,
         "color": 4
