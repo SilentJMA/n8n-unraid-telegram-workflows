@@ -1,0 +1,34 @@
+name: Feature request
+description: A new Telegram command, alert, log rule or workflow
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do?
+      description: The task or problem, not only the solution
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: For new commands, say what the reply should show. For log rules, paste a real (redacted) log line. For API data, link the Unraid GraphQL field (https://github.com/unraid/api).
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Alerts
+        - Docker updates & actions
+        - Sysadmin & Telegram bot
+        - Log / health rules (maintained in n8n-nodes-unraid)
+        - Documentation
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd like to open a pull request for this

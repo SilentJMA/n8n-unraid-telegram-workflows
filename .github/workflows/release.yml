@@ -1,0 +1,35 @@
+name: Release
+
+# Push a tag v<version> (matching package.json) to create the GitHub release with the three workflows.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Gates
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          [ "${GITHUB_REF_NAME}" = "v${VERSION}" ] || { echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json ${VERSION}"; exit 1; }
+          npm run build && git diff --exit-code -- workflows/
+          npm run check && npm test && npm run simulate -- --quiet
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          NOTES=$(awk -v v="## ${VERSION}" 'index($0, v) == 1 {p=1; next} /^## / && p {exit} p' CHANGELOG.md)
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            gh release upload "v${VERSION}" workflows/*.json --clobber
+          else
+            gh release create "v${VERSION}" workflows/*.json --title "v${VERSION}" --notes "${NOTES:-See CHANGELOG.md}"
+          fi

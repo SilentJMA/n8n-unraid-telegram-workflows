@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and help
+    url: https://github.com/SilentJMA/n8n-unraid-telegram-workflows/discussions/categories/q-a
+    about: Setup questions, "how do I…", and sharing workflows. Please ask here instead of opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/SilentJMA/n8n-unraid-telegram-workflows/security/advisories/new
+    about: Report security problems privately, never in a public issue.
+  - name: Unraid API documentation
+    url: https://docs.unraid.net/API/
+    about: Enabling the API, creating API keys, roles and permissions.

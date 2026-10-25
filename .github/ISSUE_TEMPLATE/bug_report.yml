@@ -1,0 +1,69 @@
+name: Bug report
+description: A workflow or Telegram command does not behave as documented
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Never paste your Unraid API key or Telegram bot token.** Redact hostnames and IPs if you prefer.
+  - type: input
+    id: release
+    attributes:
+      label: Workflow release
+      description: The release you imported the workflows from
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: input
+    id: n8n-version
+    attributes:
+      label: n8n version
+      placeholder: 2.44.6
+    validations:
+      required: true
+  - type: input
+    id: unraid-version
+    attributes:
+      label: Unraid version
+      placeholder: 7.3.0
+    validations:
+      required: true
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Workflow
+      options:
+        - Unraid · Alerts
+        - Unraid · Docker updates & actions
+        - Unraid · Sysadmin & Telegram bot
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Command or node
+      description: The Telegram command you sent, or the node that failed (e.g. "Unraid API 2", "Step 1")
+      placeholder: /update_all_confirm
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Include the Telegram reply if there was one
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error from the execution
+      description: Open the failed execution in n8n and copy the error or the failing node's output (redact secrets)
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed API keys, tokens and passwords from everything above
+          required: true
+        - label: cfg.unraidUrl uses https:// and the Header Auth credential has Name x-api-key

@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Workflows are up to date
+        run: |
+          npm run build
+          git diff --exit-code -- workflows/ || { echo "::error::workflows/*.json are stale: run npm run build and commit the result"; exit 1; }
+      - run: npm run check
+      - run: npm test
+      - run: npm run simulate -- --quiet
