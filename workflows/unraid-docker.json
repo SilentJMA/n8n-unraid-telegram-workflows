@@ -355,6 +355,54 @@
         1520,
         140
       ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Triggers and settings\nCalled by the Telegram bot for Docker commands, or by the Sunday schedule for the weekly update window.",
+        "width": 700,
+        "height": 90,
+        "color": 7
+      },
+      "id": "5bb2bb98-c106-4351-a79c-f799b5c437eb",
+      "name": "Section: triggers",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -940,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Plan, then up to three Unraid API calls\n**Plan** decides what to do. Each **Step** reads the previous response and either asks for another call or produces the reply.",
+        "width": 1900,
+        "height": 80,
+        "color": 4
+      },
+      "id": "9533231d-f09a-49db-aea7-ca4b64db9676",
+      "name": "Section: api chain",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Telegram reply\nDestructive actions ask for confirmation first.",
+        "width": 320,
+        "height": 80,
+        "color": 6
+      },
+      "id": "ba646b3c-6c87-4dc4-a23d-f83832d0f8b3",
+      "name": "Section: reply",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1960,
+        430
+      ]
     }
   ],
   "connections": {

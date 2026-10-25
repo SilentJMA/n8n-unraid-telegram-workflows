@@ -534,6 +534,102 @@
         480
       ],
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "### 1. Triggers and settings\nA one-minute schedule reads the syslog; a five-minute schedule runs the health checks. Both start from **Alert settings**.",
+        "width": 540,
+        "height": 110,
+        "color": 7
+      },
+      "id": "4356afa4-3cb8-4172-a0ff-e87ef8819392",
+      "name": "Section: triggers",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -940,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Syslog check (every minute)\nReads only the **new** lines of `/var/log/syslog` and keeps warnings or worse.",
+        "width": 680,
+        "height": 110,
+        "color": 7
+      },
+      "id": "f9d64f70-d39a-4450-a816-12c0a4672b50",
+      "name": "Section: syslog",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Health checks (every 5 minutes)\nArray, disks, SMART, parity, memory, stopped autostart containers and unread Unraid alerts.",
+        "width": 680,
+        "height": 110,
+        "color": 7
+      },
+      "id": "cf93d3db-5b70-4d93-a15c-2dc07f79f471",
+      "name": "Section: health",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 4. Normalise, throttle, AI triage\nEach new problem is sent once; repeats are throttled. AI triage is optional and works with any chat model.",
+        "width": 760,
+        "height": 110,
+        "color": 4
+      },
+      "id": "fdf1e489-8d37-48e2-a8aa-e80c5890baf0",
+      "name": "Section: triage",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        440,
+        30
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 5. Telegram alert\nThe message includes suggested next steps and one-tap follow-up commands.",
+        "width": 540,
+        "height": 110,
+        "color": 6
+      },
+      "id": "083f9ee6-f270-4cc6-a0ba-d9f990ebd7bb",
+      "name": "Section: delivery",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 6. Optional extras\nMirror the alert as an Unraid notification, or restart stopped autostart containers. Both are off unless enabled in **Alert settings**.",
+        "width": 1100,
+        "height": 100,
+        "color": 5
+      },
+      "id": "c79731cf-51f0-458c-a6bf-b3c8fd137799",
+      "name": "Section: extras",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        580
+      ]
     }
   ],
   "connections": {

@@ -319,6 +319,12 @@ return $input.all().map((item, i) => {
 	b.connect(startApi, fixMsg);
 	b.connect(fixMsg, b.telegram('Send auto-restart result', [2440, 480]));
 
+	b.sticky('Section: triggers', [-940, 30], 540, 110, '### 1. Triggers and settings\nA one-minute schedule reads the syslog; a five-minute schedule runs the health checks. Both start from **Alert settings**.', 7);
+	b.sticky('Section: syslog', [-260, 30], 680, 110, '### 2. Syslog check (every minute)\nReads only the **new** lines of `/var/log/syslog` and keeps warnings or worse.', 7);
+	b.sticky('Section: health', [-260, 540], 680, 110, '### 3. Health checks (every 5 minutes)\nArray, disks, SMART, parity, memory, stopped autostart containers and unread Unraid alerts.', 7);
+	b.sticky('Section: triage', [440, 30], 760, 110, '### 4. Normalise, throttle, AI triage\nEach new problem is sent once; repeats are throttled. AI triage is optional and works with any chat model.', 4);
+	b.sticky('Section: delivery', [1300, -20], 540, 110, '### 5. Telegram alert\nThe message includes suggested next steps and one-tap follow-up commands.', 6);
+	b.sticky('Section: extras', [1540, 580], 1100, 100, '### 6. Optional extras\nMirror the alert as an Unraid notification, or restart stopped autostart containers. Both are off unless enabled in **Alert settings**.', 5);
 	write('unraid-alerts.json', b.workflow('Unraid · Alerts'));
 }
 
@@ -379,6 +385,9 @@ return [{ json: dockerPlan($input.first().json) }];`);
 	const send = b.telegram('Send reply', [2000, 520]);
 	apiChain(b, { planName: plan, stepFn: 'dockerStep', start: -240, sendNode: send });
 
+	b.sticky('Section: triggers', [-940, 30], 700, 90, '### 1. Triggers and settings\nCalled by the Telegram bot for Docker commands, or by the Sunday schedule for the weekly update window.', 7);
+	b.sticky('Section: api chain', [-260, 30], 1900, 80, '### 2. Plan, then up to three Unraid API calls\n**Plan** decides what to do. Each **Step** reads the previous response and either asks for another call or produces the reply.', 4);
+	b.sticky('Section: reply', [1960, 430], 320, 80, '### 3. Telegram reply\nDestructive actions ask for confirmation first.', 6);
 	write('unraid-docker.json', b.workflow('Unraid · Docker updates & actions'));
 }
 
@@ -452,5 +461,9 @@ return [{ json: sysStep($('Plan').first().json, $input.first().json) }];`);
 		replyKeyboardOptions: { resize_keyboard: true },
 	}), 0);
 
+	b.sticky('Section: authorization', [-940, 330], 880, 90, '### 1. Authorization\nOnly chat IDs listed in **cfg.allowedChatIds** are served. Until the list is filled in, the bot answers with the sender\'s chat ID.', 7);
+	b.sticky('Section: docker', [240, -150], 320, 90, '### 2. Docker commands\nForwarded to the Docker workflow.', 4);
+	b.sticky('Section: sysadmin', [420, -60], 640, 90, '### 3. Sysadmin commands\nStatus, info, disks, parity, syslog, notifications and VMs through the Unraid API.', 4);
+	b.sticky('Section: reply', [1060, 100], 320, 90, '### 4. Telegram reply\nHTML-escaped and clipped to the Telegram message limit.', 6);
 	write('unraid-sysadmin-bot.json', b.workflow('Unraid · Sysadmin & Telegram bot'));
 }

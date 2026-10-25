@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 - 2026-10-25
+
+- Added a short sticky note above each group of nodes in all three workflows, following the n8n template guidelines. No node was renamed or changed.
+
 ## 0.1.0 - 2026-10-25
 
 First release: three Unraid workflows managed from Telegram, built only from n8n's built-in nodes.

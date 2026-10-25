@@ -408,6 +408,70 @@
         380
       ],
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "### 1. Authorization\nOnly chat IDs listed in **cfg.allowedChatIds** are served. Until the list is filled in, the bot answers with the sender's chat ID.",
+        "width": 880,
+        "height": 90,
+        "color": 7
+      },
+      "id": "3059bb53-fe5c-4cb3-aa00-754bbdf3c469",
+      "name": "Section: authorization",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -940,
+        330
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Docker commands\nForwarded to the Docker workflow.",
+        "width": 320,
+        "height": 90,
+        "color": 4
+      },
+      "id": "4b866c1a-ae61-41c6-afe0-e0137dbbc222",
+      "name": "Section: docker",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -150
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Sysadmin commands\nStatus, info, disks, parity, syslog, notifications and VMs through the Unraid API.",
+        "width": 640,
+        "height": 90,
+        "color": 4
+      },
+      "id": "f66749c3-e2f7-4366-a72f-c032b86d7ce5",
+      "name": "Section: sysadmin",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        420,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 4. Telegram reply\nHTML-escaped and clipped to the Telegram message limit.",
+        "width": 320,
+        "height": 90,
+        "color": 6
+      },
+      "id": "e681db70-f1e5-480c-a3ef-e31dddd7f156",
+      "name": "Section: reply",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        100
+      ]
     }
   ],
   "connections": {
