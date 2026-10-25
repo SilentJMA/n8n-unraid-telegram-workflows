@@ -13,7 +13,7 @@ Monitor and manage an **Unraid** server from **Telegram**, using three n8n workf
 
 They talk to the official [Unraid API](https://docs.unraid.net/API/) (GraphQL, Unraid 7.2+ or the Unraid Connect plugin).
 
-> Prefer a dedicated node? The same logic ships as the community node package [`@silentjma/n8n-nodes-unraid`](https://github.com/SilentJMA/n8n-nodes-unraid). It adds an Unraid action node, an Unraid Trigger, and versions of these workflows built on them.
+> Prefer a dedicated node? The same logic ships as the community node package [`@silentjma/n8n-nodes-unraid`](https://www.npmjs.com/package/@silentjma/n8n-nodes-unraid) ([source](https://github.com/SilentJMA/n8n-nodes-unraid)). It adds an Unraid action node, an Unraid Trigger, and versions of these workflows built on them.
 
 ## The workflows
 
