@@ -1,5 +1,10 @@
 # Unraid + Telegram workflows for n8n
 
+[![CI](https://github.com/SilentJMA/n8n-unraid-telegram-workflows/actions/workflows/ci.yml/badge.svg)](https://github.com/SilentJMA/n8n-unraid-telegram-workflows/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/SilentJMA/n8n-unraid-telegram-workflows)](https://github.com/SilentJMA/n8n-unraid-telegram-workflows/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/kilwanitrod)
+
 Monitor and manage an **Unraid** server from **Telegram**, using three n8n workflows built **only from n8n's built-in nodes** (Schedule, HTTP Request, Code, IF, Set, Telegram). No community node is needed, so they can be imported anywhere and shared in template galleries.
 
 - 🔔 **Alerts**: new syslog errors and health problems arrive in Telegram with **suggested next steps** and one-tap follow-up commands.
@@ -107,6 +112,17 @@ npm run simulate   # run every workflow against a mocked Unraid API
 ```
 
 See [AGENT.md](AGENT.md) for the maintenance and release procedure.
+
+## Support and contributing
+
+- **Questions:** [Discussions › Q&A](https://github.com/SilentJMA/n8n-unraid-telegram-workflows/discussions/categories/q-a). Common problems are listed in [SUPPORT.md](SUPPORT.md).
+- **Bugs and ideas:** [open an issue](https://github.com/SilentJMA/n8n-unraid-telegram-workflows/issues/new/choose). Never paste API keys or tokens.
+- **Security:** report privately, see [SECURITY.md](SECURITY.md).
+- **Contributing:** read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+If these workflows save you time, you can support the project:
+
+<a href="https://www.buymeacoffee.com/kilwanitrod"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=kilwanitrod&button_colour=FFDD00&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" height="40"></a>
 
 ## License
 

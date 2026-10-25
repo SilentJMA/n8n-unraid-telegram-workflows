@@ -44,13 +44,15 @@ This repository publishes three n8n workflows that manage an Unraid server from 
 
 ## Releasing
 
-1. Bump `version` in `package.json` and add a dated section to `CHANGELOG.md`.
-2. Run the gates.
-3. Commit (`Release <v>`), tag and attach the workflows:
-   ```bash
-   git tag v<v> && git push origin main --tags
-   gh release create v<v> workflows/*.json --title "v<v>" --notes-file <notes>
-   ```
+1. Bump `version` in `package.json`. In `CHANGELOG.md`, rename **Unreleased** to `## <version> - <YYYY-MM-DD>` and start a new **Unreleased** section.
+2. Run the gates, then commit `Release <version>` with a plain message and no trailers.
+3. Run `git tag v<version> && git push origin main v<version>`. [.github/workflows/release.yml](.github/workflows/release.yml) reruns the gates and creates the GitHub release with `workflows/*.json`, taking the notes from the changelog.
+
+## Community
+
+- Issues use `.github/ISSUE_TEMPLATE/`. Questions go to Discussions (Q&A), security to private advisories ([SECURITY.md](SECURITY.md)).
+- Pull requests need green CI and the checklist in `.github/PULL_REQUEST_TEMPLATE.md`. Squash-merge.
+- Rule changes belong in n8n-nodes-unraid. Here, only sync them with `npm run sync-rules`.
 
 ## Gotchas
 

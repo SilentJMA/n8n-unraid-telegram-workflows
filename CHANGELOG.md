@@ -4,6 +4,12 @@
 
 - Added a short sticky note above each group of nodes in all three workflows, following the n8n template guidelines. No node was renamed or changed.
 
+## Unreleased
+
+- Community files: CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, issue and pull request templates.
+- CI (regenerate, check, tests, simulation) and a tag-based release workflow.
+- Buy Me a Coffee funding link.
+
 ## 0.1.0 - 2026-10-25
 
 First release: three Unraid workflows managed from Telegram, built only from n8n's built-in nodes.
