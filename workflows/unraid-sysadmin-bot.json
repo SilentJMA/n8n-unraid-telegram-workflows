@@ -1,0 +1,575 @@
+{
+  "name": "Unraid · Sysadmin & Telegram bot",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Unraid · Sysadmin & Telegram bot\nThe **only** workflow with a Telegram Trigger (a bot delivers updates to a single webhook). It answers sysadmin commands itself and forwards Docker commands to the *Docker updates & actions* workflow.\n\n**Sysadmin:** /status · /info · /disks · /parity · /parity_start · /parity_pause · /parity_resume · /parity_cancel · /syslog · /notifications · /archive_all · /vms · /help\n**Docker:** /containers · /updates · /update_all · /update_<name> · /restart_<name> · /start_<name> · /stop_<name> · /logs_<name>\n\nOnly chats in **cfg.allowedChatIds** are served. Until it is set, the bot only replies with the sender's chat ID.",
+        "width": 640,
+        "height": 420
+      },
+      "id": "69ce053b-b71f-43a5-aaa5-4cd5b539ece6",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1000,
+        -460
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Setup\n1. Create a bot with **@BotFather**, add a **Telegram** credential, select it in the trigger and the Telegram nodes.\n2. Select an **HTTP Header Auth** credential with Name `x-api-key` and Value = your Unraid API key (Settings › Management Access › API Keys, admin role) in the **Unraid API** node.\n3. **Bot settings**: set **cfg.unraidUrl**. Publish, then message the bot: it replies with your chat ID. Put it in **cfg.allowedChatIds** and in the other two workflows.\n4. In **Run Docker workflow** pick *Unraid · Docker updates & actions* (publish that one too).",
+        "width": 560,
+        "height": 420,
+        "color": 4
+      },
+      "id": "fd017894-e40d-4ede-af14-624268e20c1d",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -340,
+        -460
+      ]
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "d415df8f-f0fb-4517-a710-c5f3470e89cf",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -920,
+        200
+      ],
+      "webhookId": "365f274d-31a6-44a2-aad0-75b589b4fcf5"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "88840b61-f18e-47b9-ac93-420f4c6c1d0c",
+              "name": "cfg.unraidUrl",
+              "value": "https://tower.local",
+              "type": "string"
+            },
+            {
+              "id": "92681bef-a4d3-48b6-a274-67ba65efc907",
+              "name": "cfg.allowedChatIds",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "0e41f687-31cf-43d8-a6ed-7ed2508d4906",
+      "name": "Bot settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -700,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const PREFIXED = [\"update\",\"restart\",\"start\",\"stop\",\"logs\",\"parity\",\"archive\"];\nconst DOCKER = [\"containers\",\"updates\",\"update\",\"restart\",\"start\",\"stop\",\"logs\"];\nfunction parseCommand(j) {\n\tconst msg = j.message ?? {};\n\tconst chatId = String(msg.chat?.id ?? '');\n\tconst allowed = String(j.cfg?.allowedChatIds ?? '').split(',').map((s) => s.trim()).filter(Boolean);\n\tconst text = String(msg.text ?? '').trim();\n\tlet [head = '', ...rest] = text.replace(/^\\//, '').split(/\\s+/);\n\thead = head.replace(/@\\w+$/, '').toLowerCase();\n\tlet confirmed = rest.includes('confirm');\n\trest = rest.filter((r) => r !== 'confirm');\n\tif (head.endsWith('_confirm')) {\n\t\tconfirmed = true;\n\t\thead = head.slice(0, -'_confirm'.length);\n\t}\n\tlet command = text.startsWith('/') ? head : 'help';\n\tlet arg = rest.join(' ');\n\tconst i = head.indexOf('_');\n\tif (i > 0 && PREFIXED.includes(head.slice(0, i))) {\n\t\tcommand = head.slice(0, i);\n\t\targ = [head.slice(i + 1), arg].filter(Boolean).join(' ');\n\t}\n\tif (command === 'start' && !arg) command = 'help'; // Telegram's \"start bot\"\n\treturn {\n\t\tchatId,\n\t\ttext,\n\t\tcommand,\n\t\targ,\n\t\tconfirmed,\n\t\tcfg: j.cfg,\n\t\tgroup: DOCKER.includes(command) ? 'docker' : command,\n\t\tauthorized: allowed.includes(chatId),\n\t\tconfigured: allowed.length > 0,\n\t};\n}\nreturn [{ json: parseCommand($input.first().json) }];"
+      },
+      "id": "330d7937-33e3-47e7-a94d-29f0a62d5aab",
+      "name": "Parse command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "08fb7259-8f31-4187-a7e4-6ba101955287",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d6c210f4-cbc7-45df-a6f8-845975691684",
+      "name": "Authorized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -260,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "9420ed72-789d-4d73-a60c-363adfacb17b",
+      "name": "Send reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Unconfigured bot: tell the sender their chat ID. Configured: ignore strangers silently.\nreturn $input.all().filter((i) => !i.json.configured).map(({ json: j }) => ({ json: {\n  chatId: j.chatId,\n  text: `👋 This bot is not configured yet.\\nYour chat ID is <code>${j.chatId}</code>.\\nAdd it to <b>Bot settings › cfg.allowedChatIds</b> in the Sysadmin &amp; Telegram bot workflow (and to the chat ID setting of the other two workflows).`,\n} }));"
+      },
+      "id": "defc7244-6566-4164-ab63-a48161bcdc4b",
+      "name": "Not authorized",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a38d3336-8c63-461d-a68d-0955453f511a",
+              "leftValue": "={{ $json.group === \"docker\" }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ddc960dd-ee09-40dc-ae3c-7e70a8f25265",
+      "name": "Docker command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -40,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "9f68d145-2c7c-41ca-ab9e-cb6acb739dc3",
+      "name": "Run Docker workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Unraid rules and command engine (generated; edit src/engine.js and lib/, then npm run build) ----\nconst __bundle = (() => {\nconst A = {}; (function (exports) {\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.DEFAULT_HEALTH_OPTIONS = exports.LOG_RULE_NAMES = void 0;\nexports.severityAtLeast = severityAtLeast;\nexports.sortFindings = sortFindings;\nexports.containerName = containerName;\nexports.classifyLogLine = classifyLogLine;\nexports.analyzeHealth = analyzeHealth;\nexports.summarizeFindings = summarizeFindings;\nconst SEVERITY_RANK = { info: 0, warning: 1, critical: 2 };\nfunction severityAtLeast(severity, minimum) {\n    return SEVERITY_RANK[severity] >= SEVERITY_RANK[minimum];\n}\nfunction sortFindings(findings) {\n    return [...findings].sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.key.localeCompare(b.key));\n}\nfunction containerName(container) {\n    const first = container.names?.find((n) => n) ?? container.id ?? '';\n    return first.replace(/^\\//, '');\n}\nconst num = (value) => {\n    if (value === null || value === undefined || value === '')\n        return undefined;\n    const n = Number(value);\n    return Number.isFinite(n) ? n : undefined;\n};\nconst pct = (used, total) => {\n    const u = num(used);\n    const t = num(total);\n    return u !== undefined && t ? Math.round((u / t) * 1000) / 10 : undefined;\n};\nconst LOG_RULES = [\n    {\n        rule: 'disk-io-error',\n        pattern: /\\b(I\\/O error|blk_update_request|critical medium error|Buffer I\\/O error|md: disk\\d+ (read|write) error|ata\\d+(\\.\\d+)?: .*(failed command|exception|hard resetting link|link is slow|SError)|UNC\\b|end_request)/i,\n        severity: 'critical',\n        category: 'disk',\n        nextSteps: [\n            'Identify the disk from the ataX / sdX / diskN in the line (Tools › System Devices or Main tab).',\n            'Run a SMART extended test on that disk and check reallocated / pending sector counts.',\n            'Reseat or replace the SATA/SAS cable and power cable; link resets are usually cabling.',\n            'If the disk is disabled in the array, do not write to it; rebuild from parity once the cause is fixed.',\n        ],\n    },\n    {\n        rule: 'filesystem-corruption',\n        pattern: /\\b(BTRFS (error|critical|warning)|XFS \\(.*\\): (Corruption|Metadata|Internal error|log I\\/O error)|EXT4-fs error|ZFS.*(error|faulted|degraded)|checksum error|csum failed|parent transid verify failed)/i,\n        severity: 'critical',\n        category: 'filesystem',\n        nextSteps: [\n            'Note the affected device (e.g. md1p1, nvme0n1p1) and stop writing to it.',\n            'Start the array in maintenance mode and run a filesystem check (Main › disk › Check Filesystem Status).',\n            'For BTRFS pools run a scrub; for ZFS run \"zpool status -v\" and a scrub.',\n            'Run memtest if checksum errors keep appearing on several devices (bad RAM causes them).',\n        ],\n    },\n    {\n        rule: 'out-of-memory',\n        pattern: /\\b(Out of memory|oom-kill|oom_reaper|invoked oom-killer|Killed process \\d+)/i,\n        severity: 'critical',\n        category: 'memory',\n        nextSteps: [\n            'Find the killed process / container in the line and set a memory limit on it (--memory=… in Extra Parameters).',\n            'Check for containers writing to RAM (paths mapped to /tmp or not to /mnt/user) filling the rootfs.',\n            'Review VM memory allocations against total RAM.',\n        ],\n    },\n    {\n        rule: 'hardware-mce',\n        pattern: /\\b(Machine check|mce: \\[Hardware Error\\]|Hardware Error|EDAC .*(error|CE|UE)|PCIe Bus Error|AER: (Corrected|Uncorrected))/i,\n        severity: 'critical',\n        category: 'hardware',\n        nextSteps: [\n            'Install mcelog (NerdTools / Nerd Pack) to decode the machine check, or check the BIOS event log.',\n            'Run memtest86 for at least one full pass.',\n            'Update the BIOS and check CPU / VRM temperatures and PSU health.',\n        ],\n    },\n    {\n        rule: 'kernel-trace',\n        pattern: /\\b(Call Trace|kernel BUG|general protection fault|Kernel panic|BUG: unable to handle|watchdog: BUG: soft lockup|rcu_sched self-detected stall|macvlan.*(call trace|broadcast))/i,\n        severity: 'critical',\n        category: 'kernel',\n        nextSteps: [\n            'Download diagnostics (Tools › Diagnostics) while the trace is still in the syslog.',\n            'If the trace mentions macvlan, switch Docker custom networks to ipvlan (Settings › Docker).',\n            'Check that Unraid and plugins are up to date; post the diagnostics on the Unraid forum if it repeats.',\n        ],\n    },\n    {\n        rule: 'disk-space',\n        pattern: /\\b(No space left on device|disk quota exceeded|cache.*(full|is full)|docker\\.img.*(full|100%)|ENOSPC)/i,\n        severity: 'critical',\n        category: 'storage',\n        nextSteps: [\n            'Check docker.img / cache / array usage on the Main tab.',\n            'Run the Mover if the cache is full, and set a minimum free space on shares.',\n            'Find containers writing inside docker.img (Docker › Container Size) and map their paths to appdata.',\n        ],\n    },\n    {\n        rule: 'parity-errors',\n        pattern: /\\b(parity (check|sync).*(error|incorrect)|sync errors?|Parity.*finished.*\\d+ errors)/i,\n        severity: 'warning',\n        category: 'parity',\n        nextSteps: [\n            'If this follows an unclean shutdown, run a correcting parity check.',\n            'If errors repeat on consecutive checks, run memtest and check disk SMART data.',\n        ],\n    },\n    {\n        rule: 'auth-failure',\n        pattern: /\\b(authentication failure|Failed password|Invalid user|Failed login|webGUI: Unsuccessful login|refused connect|Bad protocol version)/i,\n        severity: 'warning',\n        category: 'security',\n        nextSteps: [\n            'Check the source IP: if it is not on your LAN, the server is exposed to the internet.',\n            'Disable port forwarding for SSH / WebGUI; use WireGuard, Tailscale or Unraid Connect remote access instead.',\n            'Set a strong root password and consider disabling SSH password login.',\n        ],\n    },\n    {\n        rule: 'segfault',\n        pattern: /\\b(segfault at|traps: .* (general protection|trap divide error)|core dumped)/i,\n        severity: 'warning',\n        category: 'application',\n        nextSteps: [\n            'Identify the process; if it belongs to a container, restart it and check for an image update.',\n            'Repeated segfaults across processes can point to bad RAM; run memtest.',\n        ],\n    },\n    {\n        rule: 'docker-error',\n        pattern: /\\b(dockerd|containerd|docker)\\b.*\\b(error|failed|cannot|unable)\\b/i,\n        severity: 'warning',\n        category: 'docker',\n        nextSteps: [\n            'Check the named container\\'s own log (Docker › container › Logs) for the root cause.',\n            'Restart the container; if Docker itself fails, check that docker.img is not full or corrupted.',\n        ],\n    },\n    {\n        rule: 'network',\n        pattern: /\\b(Link is Down|NIC Link is Down|link down|carrier lost|bond\\d+: .*(link status definitely down|No active)|duplicate address detected|DHCP.*(failed|timeout))/i,\n        severity: 'warning',\n        category: 'network',\n        nextSteps: [\n            'Check the network cable, switch port and NIC; note which interface went down.',\n            'If it flaps, check for duplicate IPs and bonding / bridging settings (Settings › Network).',\n        ],\n    },\n    {\n        rule: 'temperature',\n        pattern: /\\b(temperature above threshold|cpu clock throttled|Package temperature|overheat|thermal)\\b/i,\n        severity: 'warning',\n        category: 'temperature',\n        nextSteps: [\n            'Check fans, airflow and dust; confirm CPU cooler mounting.',\n            'Review fan curves (Dynamix Auto Fan Control) and disk temperature thresholds.',\n        ],\n    },\n    {\n        rule: 'app-fatal',\n        pattern: /\\b(fatal( error)?:|panic:|unhandled exception|uncaught exception|traceback \\(most recent call last\\)|database disk image is malformed|database is locked|corrupt(ed|ion)\\b)/i,\n        severity: 'warning',\n        category: 'application',\n        nextSteps: [\n            'Read the lines before this one in the container log for the root cause.',\n            'For database corruption: stop the container, back up its appdata, then repair or restore the database.',\n            'Check the appdata path is on a healthy disk / pool and not full.',\n        ],\n    },\n    {\n        rule: 'generic-error',\n        pattern: /\\b(error|failed|failure|fatal|critical|panic|denied)\\b/i,\n        severity: 'info',\n        category: 'general',\n        nextSteps: ['Look at the surrounding log lines for context; repeated occurrences deserve a closer look.'],\n    },\n];\nconst BENIGN = [\n    /ACPI (Error|Warning|BIOS Error).*(AE_NOT_FOUND|AE_ALREADY_EXISTS)/i, // Common BIOS table noise.\n    /\\bcorrected error\\b.*\\bPCIe\\b.*\\bReceiver Error\\b/i,\n    /\\b(error|failed)=0\\b/i,\n];\nfunction classifyLogLine(line) {\n    if (!line.trim() || BENIGN.some((p) => p.test(line)))\n        return null;\n    for (const r of LOG_RULES) {\n        if (r.pattern.test(line))\n            return { severity: r.severity, category: r.category, rule: r.rule, nextSteps: r.nextSteps };\n    }\n    return null;\n}\nexports.LOG_RULE_NAMES = LOG_RULES.map((r) => r.rule);\nexports.DEFAULT_HEALTH_OPTIONS = {\n    diskUsageWarningPercent: 90,\n    diskUsageCriticalPercent: 97,\n    defaultTempWarning: 45,\n    defaultTempCritical: 55,\n    defaultSsdTempWarning: 60,\n    defaultSsdTempCritical: 70,\n    memoryWarningPercent: 90,\n    cpuWarningPercent: 95,\n    reportStoppedAutostartContainers: true,\n    reportContainerUpdates: true,\n    includeUnraidNotifications: true,\n    ignoreContainers: [],\n};\nconst diskLabel = (d) => d.name || d.device || d.id;\nfunction analyzeHealth(snapshot, options = {}) {\n    const o = { ...exports.DEFAULT_HEALTH_OPTIONS, ...options };\n    const findings = [];\n    const array = snapshot.array;\n    if (array?.state && array.state !== 'STARTED') {\n        findings.push({\n            key: `array:state:${array.state}`,\n            severity: 'critical',\n            category: 'array',\n            title: `Array is ${array.state}`,\n            details: `The Unraid array is in state ${array.state}; shares, Docker and VMs on the array are unavailable.`,\n            nextSteps: array.state === 'STOPPED'\n                ? ['If this was not intentional, check the Main tab for missing disks before starting the array.', 'Start the array once all disks are present.']\n                : ['Open the Main tab: the state names the problem (missing / wrong / too small disk).', 'Do not start the array or format anything until the disk assignment is correct.'],\n            suggestedAction: array.state === 'STOPPED' ? { resource: 'array', operation: 'start' } : undefined,\n        });\n    }\n    const arrayDisks = [...(array?.parities ?? []), ...(array?.disks ?? []), ...(array?.caches ?? [])];\n    for (const d of arrayDisks) {\n        const label = diskLabel(d);\n        if (d.status && !['DISK_OK', 'DISK_NP'].includes(d.status)) {\n            findings.push({\n                key: `disk:status:${d.id}:${d.status}`,\n                severity: 'critical',\n                category: 'disk',\n                title: `${label} is ${d.status.replace(/^DISK_/, '').toLowerCase()}`,\n                details: `${d.type ?? 'Disk'} ${label} (${d.device ?? 'no device'}) reports status ${d.status}.`,\n                nextSteps: d.status.includes('DSBL') || d.status === 'DISK_INVALID'\n                    ? [\n                        'The disk is disabled (red X) and is being emulated from parity. Do not write heavily to the array.',\n                        'Check SMART data and cabling, then download diagnostics before changing anything.',\n                        'Rebuild onto the same disk (if healthy) or a replacement: stop array, unassign, start, stop, reassign, start.',\n                    ]\n                    : ['Check the Main tab for the disk assignment and whether the disk is physically connected.', 'Download diagnostics before reassigning disks.'],\n            });\n        }\n        const errors = num(d.numErrors);\n        if (errors && errors > 0) {\n            findings.push({\n                key: `disk:errors:${d.id}`,\n                severity: 'warning',\n                category: 'disk',\n                title: `${label} has ${errors} read/write error(s)`,\n                details: `The array driver recorded ${errors} unrecoverable I/O errors on ${label} since the counters were last cleared.`,\n                nextSteps: ['Run a SMART extended test on the disk.', 'Check / replace the SATA and power cables.', 'Clear the statistics after fixing so new errors stand out.'],\n            });\n        }\n        if (d.temp !== null && d.temp !== undefined) {\n            const ssd = d.rotational === false;\n            const crit = d.critical ?? (ssd ? o.defaultSsdTempCritical : o.defaultTempCritical);\n            const warn = d.warning ?? (ssd ? o.defaultSsdTempWarning : o.defaultTempWarning);\n            const level = d.temp >= crit ? 'critical' : d.temp >= warn ? 'warning' : null;\n            if (level) {\n                findings.push({\n                    key: `disk:temp:${d.id}:${level}`,\n                    severity: level,\n                    category: 'temperature',\n                    title: `${label} is at ${d.temp}°C`,\n                    details: `${label} temperature ${d.temp}°C exceeds the ${level} threshold (${level === 'critical' ? crit : warn}°C).`,\n                    nextSteps: ['Check case fans and airflow over the drive cage.', 'Pause a running parity check if it is driving the temperature up.', 'Review fan control and per-disk thresholds (Settings › Disk Settings).'],\n                });\n            }\n        }\n        const usage = pct(d.fsUsed, d.fsSize);\n        if (usage !== undefined && usage >= o.diskUsageWarningPercent) {\n            const level = usage >= o.diskUsageCriticalPercent ? 'critical' : 'warning';\n            findings.push({\n                key: `disk:usage:${d.id}:${level}`,\n                severity: level,\n                category: 'storage',\n                title: `${label} is ${usage}% full`,\n                details: `Filesystem on ${label} is ${usage}% used.`,\n                nextSteps: d.type === 'CACHE'\n                    ? ['Run the Mover (Main › Move) and check share cache settings.', 'Set a minimum free space on the pool so writes overflow to the array.']\n                    : ['Set a minimum free space on shares and check the split level / allocation method.', 'Plan a new or larger disk if all data disks are filling up.'],\n            });\n        }\n    }\n    const parity = array?.parityCheckStatus;\n    if (parity?.status === 'FAILED') {\n        findings.push({\n            key: 'parity:failed',\n            severity: 'critical',\n            category: 'parity',\n            title: 'Last parity check failed',\n            details: 'The most recent parity check did not finish successfully.',\n            nextSteps: ['Check the syslog around the end of the check for disk errors.', 'Run the check again once disk issues are fixed.'],\n        });\n    }\n    else if (parity && (parity.errors ?? 0) > 0 && !parity.running) {\n        findings.push({\n            key: `parity:errors:${parity.errors}`,\n            severity: 'warning',\n            category: 'parity',\n            title: `Parity check found ${parity.errors} error(s)`,\n            details: `The last parity check (${parity.status}) reported ${parity.errors} sync errors.`,\n            nextSteps: ['After an unclean shutdown, run a correcting check once.', 'If errors return on the next non-correcting check, run memtest and inspect SMART data.'],\n        });\n    }\n    for (const d of snapshot.disks ?? []) {\n        if (d.smartStatus && d.smartStatus !== 'OK' && d.smartStatus !== 'UNKNOWN') {\n            findings.push({\n                key: `smart:${d.id}:${d.smartStatus}`,\n                severity: 'critical',\n                category: 'disk',\n                title: `SMART status of ${d.name || d.device} is ${d.smartStatus}`,\n                details: `Physical disk ${d.device} reports SMART status ${d.smartStatus}.`,\n                nextSteps: ['Back up anything on this disk that is not protected by parity.', 'Order a replacement and run an extended SMART test to confirm.'],\n            });\n        }\n    }\n    const ignored = new Set(o.ignoreContainers.map((n) => n.trim().toLowerCase()).filter(Boolean));\n    for (const c of snapshot.docker?.containers ?? []) {\n        const name = containerName(c);\n        if (ignored.has(name.toLowerCase()))\n            continue;\n        if (o.reportStoppedAutostartContainers && c.autoStart && c.state && c.state !== 'RUNNING') {\n            findings.push({\n                key: `container:down:${name}`,\n                severity: 'warning',\n                category: 'docker',\n                title: `Container ${name} is ${c.state.toLowerCase()}`,\n                details: `${name} (${c.image}) has autostart enabled but is ${c.state} — ${c.status ?? ''}`.trim(),\n                nextSteps: [\n                    `Read the last log lines of ${name} for the exit reason.`,\n                    `Restart ${name}; if it exits again, check its appdata paths and recent image changes.`,\n                ],\n                suggestedAction: { resource: 'dockerContainer', operation: c.state === 'PAUSED' ? 'unpause' : 'start', id: c.id, name },\n            });\n        }\n        if (o.reportContainerUpdates && c.isUpdateAvailable) {\n            findings.push({\n                key: `container:update:${name}`,\n                severity: 'info',\n                category: 'docker-update',\n                title: `Update available for ${name}`,\n                details: `A newer image is available for ${name} (${c.image}).`,\n                nextSteps: [`Read the release notes of ${c.image} for breaking changes.`, `Update ${name} (back up its appdata first for databases).`],\n                suggestedAction: { resource: 'dockerContainer', operation: 'update', id: c.id, name },\n            });\n        }\n    }\n    if (o.includeUnraidNotifications) {\n        for (const n of snapshot.notifications?.warningsAndAlerts ?? []) {\n            findings.push({\n                key: `notification:${n.id}`,\n                severity: n.importance === 'ALERT' ? 'critical' : 'warning',\n                category: 'unraid-notification',\n                title: n.subject || n.title || 'Unraid notification',\n                details: [n.title, n.description].filter(Boolean).join(' — '),\n                nextSteps: ['Open the notification in the Unraid WebGUI and archive it once handled.'],\n            });\n        }\n    }\n    const mem = snapshot.metrics?.memory?.percentTotal;\n    if (mem !== undefined && mem >= o.memoryWarningPercent) {\n        findings.push({\n            key: 'memory:high',\n            severity: 'warning',\n            category: 'memory',\n            title: `Memory usage at ${Math.round(mem)}%`,\n            details: `RAM usage is ${Math.round(mem)}% (swap ${Math.round(snapshot.metrics?.memory?.percentSwapTotal ?? 0)}%).`,\n            nextSteps: ['Find the heaviest containers (Docker › Advanced view / ctop).', 'Set memory limits on containers and check VM allocations.'],\n        });\n    }\n    const cpu = snapshot.metrics?.cpu?.percentTotal;\n    if (cpu !== undefined && cpu >= o.cpuWarningPercent) {\n        findings.push({\n            key: 'cpu:high',\n            severity: 'info',\n            category: 'cpu',\n            title: `CPU usage at ${Math.round(cpu)}%`,\n            details: `Total CPU usage is ${Math.round(cpu)}% at the time of the check.`,\n            nextSteps: ['Check whether a parity check, mover, transcode or backup is running.', 'Pin heavy containers / VMs to specific cores if this is persistent.'],\n        });\n    }\n    return sortFindings(findings);\n}\nfunction summarizeFindings(findings) {\n    const counts = { critical: 0, warning: 0, info: 0 };\n    for (const f of findings)\n        counts[f.severity]++;\n    const status = counts.critical ? 'critical' : counts.warning ? 'warning' : counts.info ? 'info' : 'ok';\n    return { status, counts, total: findings.length };\n}\n})(A);\nconst L = {}; (function (exports, __analysis) {\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.splitLogContent = splitLogContent;\nexports.compilePattern = compilePattern;\nexports.filterLogLines = filterLogLines;\nconst analysis_1 = __analysis;\nfunction splitLogContent(content, startLine) {\n    const raw = content.split(/\\r?\\n/);\n    if (raw.length && raw[raw.length - 1] === '')\n        raw.pop();\n    return raw.map((line, i) => ({ lineNumber: startLine ? startLine + i : undefined, line }));\n}\nfunction compilePattern(pattern) {\n    if (!pattern?.trim())\n        return undefined;\n    try {\n        return new RegExp(pattern, 'i');\n    }\n    catch (error) {\n        throw new Error(`Invalid filter pattern \"${pattern}\": ${error.message}`);\n    }\n}\nfunction filterLogLines(lines, filter) {\n    const regex = compilePattern(filter.pattern);\n    const out = [];\n    for (const l of lines) {\n        if (regex && !regex.test(l.line))\n            continue;\n        if (filter.analyze) {\n            const match = (0, analysis_1.classifyLogLine)(l.line);\n            if (filter.minSeverity && filter.minSeverity !== 'all' && (!match || !(0, analysis_1.severityAtLeast)(match.severity, filter.minSeverity)))\n                continue;\n            out.push(match ? { ...l, ...match } : l);\n        }\n        else {\n            out.push(l);\n        }\n    }\n    return out;\n}\n})(L, A);\nconst QM = {}; (function (exports) {\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.M = exports.Q = exports.METRICS_FIELDS = exports.NOTIFICATION_FIELDS = exports.PHYSICAL_DISK_FIELDS = exports.ARRAY_FIELDS = exports.PARITY_FIELDS = exports.ARRAY_DISK_FIELDS = exports.CONTAINER_FIELDS = void 0;\nexports.CONTAINER_FIELDS = `\n\tid names image imageId state status created autoStart autoStartOrder\n\tisUpdateAvailable isRebuildReady isOrphaned webUiUrl iconUrl projectUrl\n\tports { ip privatePort publicPort type }`;\nexports.ARRAY_DISK_FIELDS = `\n\tid idx name device size status type temp warning critical rotational isSpinning\n\tnumReads numWrites numErrors fsSize fsFree fsUsed fsType comment`;\nexports.PARITY_FIELDS = 'date duration speed status errors progress correcting paused running';\nexports.ARRAY_FIELDS = `\n\tid state\n\tcapacity { kilobytes { free used total } disks { free used total } }\n\tparityCheckStatus { ${exports.PARITY_FIELDS} }\n\tparities { ${exports.ARRAY_DISK_FIELDS} }\n\tdisks { ${exports.ARRAY_DISK_FIELDS} }\n\tcaches { ${exports.ARRAY_DISK_FIELDS} }\n\tboot { ${exports.ARRAY_DISK_FIELDS} }`;\nexports.PHYSICAL_DISK_FIELDS = 'id device type name vendor size firmwareRevision serialNum interfaceType smartStatus temperature isSpinning';\nexports.NOTIFICATION_FIELDS = 'id title subject description importance link type timestamp formattedTimestamp';\nexports.METRICS_FIELDS = `\n\tcpu { percentTotal }\n\tmemory { total used free available percentTotal swapTotal swapUsed percentSwapTotal }`;\nexports.Q = {\n    online: '{ online }',\n    info: `{\n\t\tonline\n\t\tinfo {\n\t\t\ttime\n\t\t\tos { platform distro release kernel arch hostname uptime }\n\t\t\tcpu { manufacturer brand cores threads speed speedmax }\n\t\t\tsystem { manufacturer model virtual }\n\t\t}\n\t}`,\n    metrics: `{ metrics { ${exports.METRICS_FIELDS} } }`,\n    array: `{ array { ${exports.ARRAY_FIELDS} } }`,\n    parityHistory: `{ parityHistory { ${exports.PARITY_FIELDS} } }`,\n    disks: `{ disks { ${exports.PHYSICAL_DISK_FIELDS} } }`,\n    shares: '{ shares { id name free used size comment cache include exclude splitLevel } }',\n    containers: `{ docker { containers { ${exports.CONTAINER_FIELDS} } } }`,\n    containerNames: '{ docker { containers { id names state } } }',\n    container: `query ($id: PrefixedID!) { docker { container(id: $id) { ${exports.CONTAINER_FIELDS} } } }`,\n    containerLogs: `query ($id: PrefixedID!, $since: DateTime, $tail: Int) {\n\t\tdocker { logs(id: $id, since: $since, tail: $tail) { containerId cursor lines { timestamp message } } }\n\t}`,\n    containerUpdateStatuses: '{ docker { containerUpdateStatuses { name updateStatus } } }',\n    vms: '{ vms { domains { id name state } } }',\n    logFiles: '{ logFiles { name path size modifiedAt } }',\n    logFile: `query ($path: String!, $lines: Int, $startLine: Int) {\n\t\tlogFile(path: $path, lines: $lines, startLine: $startLine) { path content totalLines startLine }\n\t}`,\n    notifications: `query ($filter: NotificationFilter!) { notifications { list(filter: $filter) { ${exports.NOTIFICATION_FIELDS} } } }`,\n    notificationOverview: `{ notifications { overview {\n\t\tunread { info warning alert total }\n\t\tarchive { info warning alert total }\n\t} } }`,\n    warningsAndAlerts: `{ notifications { warningsAndAlerts { ${exports.NOTIFICATION_FIELDS} } } }`,\n    health: `{\n\t\tinfo { os { hostname uptime } }\n\t\tarray { ${exports.ARRAY_FIELDS} }\n\t\tdisks { ${exports.PHYSICAL_DISK_FIELDS} }\n\t\tdocker { containers { ${exports.CONTAINER_FIELDS} } }\n\t\tnotifications { warningsAndAlerts { ${exports.NOTIFICATION_FIELDS} } }\n\t\tmetrics { ${exports.METRICS_FIELDS} }\n\t}`,\n};\nexports.M = {\n    arraySetState: `mutation ($input: ArrayStateInput!) { array { setState(input: $input) { id state } } }`,\n    parityStart: 'mutation ($correct: Boolean!) { parityCheck { start(correct: $correct) } }',\n    parityPause: 'mutation { parityCheck { pause } }',\n    parityResume: 'mutation { parityCheck { resume } }',\n    parityCancel: 'mutation { parityCheck { cancel } }',\n    dockerAction: (action) => `mutation ($id: PrefixedID!) { docker { ${action}(id: $id) { ${exports.CONTAINER_FIELDS} } } }`,\n    dockerUpdateMany: `mutation ($ids: [PrefixedID!]!) { docker { updateContainers(ids: $ids) { ${exports.CONTAINER_FIELDS} } } }`,\n    dockerUpdateAll: `mutation { docker { updateAllContainers { ${exports.CONTAINER_FIELDS} } } }`,\n    dockerRefreshDigests: 'mutation { refreshDockerDigests }',\n    vmAction: (action) => `mutation ($id: PrefixedID!) { vm { ${action}(id: $id) } }`,\n    createNotification: `mutation ($input: NotificationData!) { createNotification(input: $input) { ${exports.NOTIFICATION_FIELDS} } }`,\n    notifyIfUnique: `mutation ($input: NotificationData!) { notifyIfUnique(input: $input) { ${exports.NOTIFICATION_FIELDS} } }`,\n    archiveNotification: `mutation ($id: PrefixedID!) { archiveNotification(id: $id) { ${exports.NOTIFICATION_FIELDS} } }`,\n    archiveAll: `mutation ($importance: NotificationImportance) { archiveAll(importance: $importance) {\n\t\tunread { info warning alert total } archive { info warning alert total }\n\t} }`,\n};\n})(QM);\nreturn { R: { ...A, ...L }, Q: QM.Q, M: QM.M };\n})();\nconst R = __bundle.R, Q = __bundle.Q, M = __bundle.M;\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst cmd = (n) => String(n ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');\nconst clip = (s, n = 3900) => (s.length > n ? s.slice(0, n - 20) + '\\n…(truncated)' : s);\nconst nameOf = (c) => R.containerName(c);\nfunction apiError(res) {\n\tif (!res) return 'No response from the Unraid API';\n\tif (res.error) {\n\t\tconst e = res.error;\n\t\treturn `Unraid API request failed: ${e.message ?? e.description ?? JSON.stringify(e)}`;\n\t}\n\tif (Array.isArray(res.errors) && res.errors.length) {\n\t\tconst msg = res.errors.map((e) => (e.path?.length ? `${e.path.join('.')}: ${e.message}` : e.message)).join('; ');\n\t\tconst code = res.errors[0]?.extensions?.code;\n\t\tif (code === 'UNAUTHENTICATED') return `${msg} — the API key is invalid or was revoked; update the Unraid header credential.`;\n\t\tif (code === 'FORBIDDEN') return `${msg} — the API key lacks permission; give it the admin role.`;\n\t\treturn msg;\n\t}\n\tif (!res.data) return 'Unraid API returned no data';\n\treturn null;\n}\nfunction matchContainer(list, value) {\n\tconst v = String(value).trim();\n\tconst lower = v.replace(/^\\//, '').toLowerCase();\n\treturn (\n\t\tlist.find((c) => c.id === v || c.id.endsWith(`:${v}`)) ??\n\t\tlist.find((c) => nameOf(c).toLowerCase() === lower) ??\n\t\tlist.find((c) => cmd(nameOf(c)) === cmd(v))\n\t);\n}\nconst done = (s, text) => ({ ...s, request: null, text });\nconst next = (s, stage, request) => ({ ...s, stage, request });\nconst PREFIXED = ['update', 'restart', 'start', 'stop', 'logs', 'parity', 'archive'];\nconst DOCKER = ['containers', 'updates', 'update', 'restart', 'start', 'stop', 'logs'];\nfunction parseCommand(j) {\n\tconst msg = j.message ?? {};\n\tconst chatId = String(msg.chat?.id ?? '');\n\tconst allowed = String(j.cfg?.allowedChatIds ?? '').split(',').map((s) => s.trim()).filter(Boolean);\n\tconst text = String(msg.text ?? '').trim();\n\tlet [head = '', ...rest] = text.replace(/^\\//, '').split(/\\s+/);\n\thead = head.replace(/@\\w+$/, '').toLowerCase();\n\tlet confirmed = rest.includes('confirm');\n\trest = rest.filter((r) => r !== 'confirm');\n\tif (head.endsWith('_confirm')) {\n\t\tconfirmed = true;\n\t\thead = head.slice(0, -'_confirm'.length);\n\t}\n\tlet command = text.startsWith('/') ? head : 'help';\n\tlet arg = rest.join(' ');\n\tconst i = head.indexOf('_');\n\tif (i > 0 && PREFIXED.includes(head.slice(0, i))) {\n\t\tcommand = head.slice(0, i);\n\t\targ = [head.slice(i + 1), arg].filter(Boolean).join(' ');\n\t}\n\tif (command === 'start' && !arg) command = 'help'; // Telegram's \"start bot\"\n\treturn {\n\t\tchatId,\n\t\ttext,\n\t\tcommand,\n\t\targ,\n\t\tconfirmed,\n\t\tcfg: j.cfg,\n\t\tgroup: DOCKER.includes(command) ? 'docker' : command,\n\t\tauthorized: allowed.includes(chatId),\n\t\tconfigured: allowed.length > 0,\n\t};\n}\nconst HELP = [\n\t'<b>Server</b>\\n/status — health report with next steps\\n/info — uptime, CPU, RAM, array usage\\n/disks — disk status, temps, usage\\n/parity — parity status (/parity_start, /parity_pause, /parity_resume, /parity_cancel)\\n/syslog — recent warnings in the syslog\\n/notifications — unread Unraid notifications (/archive_all)\\n/vms — virtual machines',\n\t'<b>Docker</b>\\n/containers — list with quick actions\\n/updates — check for image updates\\n/update_all — update everything (asks first)\\n/update_&lt;name&gt; · /restart_&lt;name&gt; · /start_&lt;name&gt; · /stop_&lt;name&gt; · /logs_&lt;name&gt;',\n];\nconst INFO_QUERY = `{\n\tinfo { os { hostname distro release uptime } cpu { brand cores threads } }\n\tmetrics { cpu { percentTotal } memory { total available percentTotal } }\n\tarray { state capacity { kilobytes { used total } } }\n}`;\nfunction sysPlan(p) {\n\tconst s = { chatId: p.chatId, cfg: p.cfg, command: p.command, arg: p.arg, group: p.group, request: null };\n\tswitch (p.group) {\n\t\tcase 'status':\n\t\t\treturn next(s, 'status', { query: Q.health });\n\t\tcase 'info':\n\t\t\treturn next(s, 'info', { query: INFO_QUERY });\n\t\tcase 'disks':\n\t\t\treturn next(s, 'disks', { query: Q.array });\n\t\tcase 'parity': {\n\t\t\tconst action = ['start', 'pause', 'resume', 'cancel'].includes(p.arg) ? p.arg : 'status';\n\t\t\tif (action === 'status') return next(s, 'parity', { query: Q.parityHistory });\n\t\t\tif (action === 'start' && !p.confirmed) {\n\t\t\t\treturn done(s, '⚠️ Start a (non-correcting) parity check? It reads every disk for many hours.\\nTap /parity_start_confirm to proceed.');\n\t\t\t}\n\t\t\tconst mutation = { start: M.parityStart, pause: M.parityPause, resume: M.parityResume, cancel: M.parityCancel }[action];\n\t\t\treturn next({ ...s, parityAction: action }, 'parity.op', { query: mutation, variables: action === 'start' ? { correct: false } : {} });\n\t\t}\n\t\tcase 'syslog':\n\t\t\treturn next(s, 'syslog', { query: Q.logFile, variables: { path: '/var/log/syslog', lines: 2000 } });\n\t\tcase 'notifications':\n\t\t\treturn next(s, 'notifications', { query: Q.notifications, variables: { filter: { type: 'UNREAD', offset: 0, limit: 10 } } });\n\t\tcase 'archive':\n\t\t\treturn next(s, 'archive', { query: M.archiveAll, variables: {} });\n\t\tcase 'vms':\n\t\t\treturn next(s, 'vms', { query: Q.vms });\n\t\tcase 'help':\n\t\t\treturn { ...done(s, `🖥️ <b>Unraid bot</b>\\n\\n${HELP.join('\\n\\n')}`), menu: true };\n\t\tdefault:\n\t\t\treturn { ...done(s, `❓ Unknown command <code>${esc(p.text)}</code>\\n\\n${HELP.join('\\n\\n')}`), menu: true };\n\t}\n}\nconst SEV_ICON = { ok: '✅', info: '🔵', warning: '🟠', critical: '🔴' };\nfunction sysStep(s, res) {\n\tconst err = apiError(res);\n\tif (err) return done(s, `❌ ${esc(err)}`);\n\tconst d = res.data;\n\tswitch (s.stage) {\n\t\tcase 'status': {\n\t\t\tconst findings = R.analyzeHealth(d);\n\t\t\tconst sum = R.summarizeFindings(findings);\n\t\t\tconst lines = findings.slice(0, 8).map((f) => {\n\t\t\t\tconst a = f.suggestedAction;\n\t\t\t\tconst action = a?.resource === 'dockerContainer' && a.name ? `  /${a.operation}_${cmd(a.name)}` : '';\n\t\t\t\treturn `${SEV_ICON[f.severity]} <b>${esc(f.title)}</b>${action}\\n    → ${esc(f.nextSteps?.[0] ?? '')}`;\n\t\t\t});\n\t\t\treturn done(s, clip([\n\t\t\t\t`${SEV_ICON[sum.status]} <b>${esc(d.info?.os?.hostname)}</b> — ${sum.status} · array ${esc(String(d.array?.state).toLowerCase())}`,\n\t\t\t\t`${sum.counts.critical} critical · ${sum.counts.warning} warning · ${sum.counts.info} info`,\n\t\t\t\tlines.join('\\n') || 'No problems found.',\n\t\t\t\t'/info  /disks  /syslog  /containers',\n\t\t\t].join('\\n\\n')));\n\t\t}\n\t\tcase 'info': {\n\t\t\tconst { info, metrics: m, array: a } = d;\n\t\t\tconst gb = (b) => (Number(b) / 1024 ** 3).toFixed(1);\n\t\t\tconst tb = (kb) => (Number(kb) / 1024 ** 3).toFixed(2);\n\t\t\tconst up = info.os?.uptime ? Math.floor((Date.now() - new Date(info.os.uptime)) / 3600000) : null;\n\t\t\tconst kb = a?.capacity?.kilobytes ?? {};\n\t\t\treturn done(s, [\n\t\t\t\t`🖥️ <b>${esc(info.os?.hostname)}</b> — ${esc(info.os?.distro)} ${esc(info.os?.release)}`,\n\t\t\t\tup !== null ? `⏱️ Up ${Math.floor(up / 24)}d ${up % 24}h` : '',\n\t\t\t\t`🧠 ${esc(info.cpu?.brand)} — ${info.cpu?.cores}C/${info.cpu?.threads}T · load ${Math.round(m?.cpu?.percentTotal ?? 0)}%`,\n\t\t\t\tm?.memory ? `💾 RAM ${Math.round(m.memory.percentTotal)}% of ${gb(m.memory.total)} GB (available ${gb(m.memory.available)} GB)` : '',\n\t\t\t\tkb.total ? `🗄️ Array ${esc(String(a.state).toLowerCase())} — ${tb(kb.used)} / ${tb(kb.total)} TB used (${Math.round((kb.used / kb.total) * 100)}%)` : '',\n\t\t\t].filter(Boolean).join('\\n'));\n\t\t}\n\t\tcase 'disks': {\n\t\t\tconst a = d.array;\n\t\t\tconst line = (x) => {\n\t\t\t\tconst used = x.fsSize ? Math.round((Number(x.fsUsed) / Number(x.fsSize)) * 100) + '%' : '';\n\t\t\t\tconst temp = x.temp === null || x.temp === undefined ? (x.isSpinning === false ? '💤' : '–') : x.temp + '°C';\n\t\t\t\tconst ok = x.status === 'DISK_OK';\n\t\t\t\tconst errs = Number(x.numErrors) > 0 ? ` · ⚠️ ${x.numErrors} errors` : '';\n\t\t\t\treturn `${ok ? '🟢' : '🔴'} <b>${esc(x.name)}</b> (${esc(x.device ?? '')}) ${temp}${used ? ' · ' + used + ' used' : ''}${ok ? '' : ' · ' + esc(x.status)}${errs}`;\n\t\t\t};\n\t\t\tconst group = (title, list) => (list?.length ? `<b>${title}</b>\\n` + list.map(line).join('\\n') : '');\n\t\t\tconst p = a.parityCheckStatus ?? {};\n\t\t\treturn done(s, clip([\n\t\t\t\t`💽 Array <b>${esc(String(a.state).toLowerCase())}</b>`,\n\t\t\t\tgroup('Parity', a.parities),\n\t\t\t\tgroup('Data', a.disks),\n\t\t\t\tgroup('Pools', a.caches),\n\t\t\t\t`Parity check: ${esc(String(p.status ?? 'unknown').toLowerCase())}${p.running ? ` (${p.progress}%)` : ''}${p.date ? ' · last ' + new Date(p.date).toISOString().slice(0, 10) : ''}${p.errors ? ' · ' + p.errors + ' errors' : ''}`,\n\t\t\t\t'/parity  /syslog  /status',\n\t\t\t].filter(Boolean).join('\\n\\n')));\n\t\t}\n\t\tcase 'parity': {\n\t\t\tconst runs = (d.parityHistory ?? []).filter((r) => r.date).sort((a, b) => String(b.date).localeCompare(String(a.date)));\n\t\t\tconst fmt = (r) => `• ${new Date(r.date).toISOString().slice(0, 10)} — ${esc(String(r.status).toLowerCase())}, ${Math.round((r.duration ?? 0) / 3600)}h, ${r.errors ?? 0} errors${r.running ? ` (running ${r.progress}%)` : ''}`;\n\t\t\treturn done(s, ['🧮 <b>Parity checks</b>', runs.slice(0, 5).map(fmt).join('\\n') || 'No parity history.', '/parity_start  /parity_pause  /parity_resume  /parity_cancel'].join('\\n\\n'));\n\t\t}\n\t\tcase 'parity.op':\n\t\t\treturn done(s, `✅ Parity check: ${esc(s.parityAction)} sent. Check progress with /parity`);\n\t\tcase 'syslog': {\n\t\t\tconst f = d.logFile;\n\t\t\tconst lines = R.filterLogLines(R.splitLogContent(f.content, f.startLine), { analyze: true, minSeverity: 'warning' });\n\t\t\tif (!lines.length) return done(s, '✅ No warnings in the last 2000 syslog lines.');\n\t\t\tconst mark = { critical: '🔴', warning: '🟠' };\n\t\t\tconst byCat = {};\n\t\t\tfor (const l of lines) byCat[l.category] = (byCat[l.category] ?? 0) + 1;\n\t\t\tlet body = lines.slice(-12).map((l) => `${mark[l.severity] ?? ''} ${l.line}`).join('\\n');\n\t\t\tif (body.length > 2800) body = '…' + body.slice(-2800);\n\t\t\tconst steps = [...new Set(lines.filter((l) => l.severity === 'critical').flatMap((l) => l.nextSteps ?? []))].slice(0, 3);\n\t\t\treturn done(s, clip([\n\t\t\t\t`📋 <b>Syslog</b>: ${lines.length} warning/critical line(s) in the last 2000 lines`,\n\t\t\t\tObject.entries(byCat).map(([c, n]) => `${esc(c)}: ${n}`).join(' · '),\n\t\t\t\t`<pre>${esc(body)}</pre>`,\n\t\t\t\tsteps.length ? '<b>Next steps</b>\\n' + steps.map((x, i) => `${i + 1}. ${esc(x)}`).join('\\n') : '',\n\t\t\t].filter(Boolean).join('\\n\\n')));\n\t\t}\n\t\tcase 'notifications': {\n\t\t\tconst list = d.notifications?.list ?? [];\n\t\t\tconst icon = { ALERT: '🔴', WARNING: '🟠', INFO: '🔵' };\n\t\t\treturn done(s, list.length\n\t\t\t\t? clip(`🔔 <b>${list.length} unread notification(s)</b>\\n\\n` + list.map((n) => `${icon[n.importance] ?? '⚪'} <b>${esc(n.subject)}</b>\\n    ${esc(n.description)} <i>(${esc(n.formattedTimestamp ?? n.timestamp ?? '')})</i>`).join('\\n') + '\\n\\nArchive all: /archive_all')\n\t\t\t\t: '✅ No unread notifications.');\n\t\t}\n\t\tcase 'archive': {\n\t\t\tconst o = d.archiveAll ?? {};\n\t\t\treturn done(s, `🗂️ Archived. Unread now: ${o.unread?.total ?? 0}, archived: ${o.archive?.total ?? '?'}`);\n\t\t}\n\t\tcase 'vms': {\n\t\t\tconst list = d.vms?.domains ?? [];\n\t\t\treturn done(s, list.length\n\t\t\t\t? '🖥️ <b>Virtual machines</b>\\n' + list.map((v) => `${v.state === 'RUNNING' ? '🟢' : '⚪'} <b>${esc(v.name)}</b> — ${esc(String(v.state).toLowerCase())}`).join('\\n')\n\t\t\t\t: 'No virtual machines defined.');\n\t\t}\n\t\tdefault:\n\t\t\treturn done(s, `❌ Unknown stage ${esc(s.stage)}`);\n\t}\n}\nfunction dockerPlan(j) {\n\tconst chatId = j.chatId || j.cfg?.telegramChatId;\n\tconst command = j.command || 'scheduled';\n\tconst arg = String(j.arg ?? '').trim();\n\tconst s = { chatId, command, arg, scheduled: !j.command, cfg: j.cfg, request: null };\n\tconst usage = (c) => done(s, `Usage: /${c}_&lt;container&gt; — see /containers`);\n\tconst resolveFirst = (action, extra = {}) => next({ ...s, action, ...extra }, `${action}.resolved`, { query: Q.containerNames });\n\tif (command === 'scheduled') return next({ ...s, action: 'updateAll' }, 'updateAll.refreshed', { query: M.dockerRefreshDigests });\n\tif (command === 'containers') return next({ ...s, action: 'list' }, 'list', { query: Q.containers });\n\tif (command === 'updates') return next({ ...s, action: 'updates' }, 'updates.refreshed', { query: M.dockerRefreshDigests });\n\tif (command === 'update') {\n\t\tif (!arg) return usage('update');\n\t\tif (arg === 'all') {\n\t\t\treturn j.confirmed\n\t\t\t\t? next({ ...s, action: 'updateAll' }, 'updateAll.refreshed', { query: M.dockerRefreshDigests })\n\t\t\t\t: done(s, '⚠️ Update every container that has an update (except excluded ones)?\\nTap /update_all_confirm to proceed.');\n\t\t}\n\t\treturn resolveFirst('update', { names: arg.split(/[\\s,]+/).filter(Boolean) });\n\t}\n\tif (['restart', 'start', 'stop', 'logs'].includes(command)) {\n\t\tif (!arg) return usage(command);\n\t\tif (command === 'stop' && !j.confirmed) return done(s, `⚠️ Stop <b>${esc(arg)}</b>?\\nTap /stop_${cmd(arg)}_confirm to proceed.`);\n\t\treturn resolveFirst(command, { names: [arg] });\n\t}\n\treturn done(s, `Unknown Docker command /${esc(command)}. Try /help`);\n}\nfunction excludedSet(cfg) {\n\treturn new Set(String(cfg?.excludeFromUpdates ?? '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));\n}\nfunction fmtUpdated(s, updated) {\n\tconst skippedLine = s.skipped?.length ? `\\nSkipped (excluded): ${esc(s.skipped.join(', '))}` : '';\n\tconst lines = updated.map((c) => `• <b>${esc(nameOf(c))}</b>: ${esc(String(c.state).toLowerCase())} (${esc(c.image)})`);\n\treturn `⬆️ <b>Updated ${lines.length} container(s)</b>${s.scheduled ? ' (weekly window)' : ''}\\n${lines.join('\\n')}${skippedLine}`;\n}\nfunction dockerStep(s, res) {\n\tconst err = apiError(res);\n\tif (err) return done(s, `❌ ${s.action === 'updateAll' || s.action === 'update' ? '<b>Update failed</b>\\n' : ''}${esc(err)}`);\n\tconst d = res.data;\n\tconst containers = () => (d.docker?.containers ?? []);\n\tswitch (s.stage) {\n\t\tcase 'list': {\n\t\t\tconst items = containers().slice().sort((a, b) => nameOf(a).localeCompare(nameOf(b)));\n\t\t\tconst icon = { RUNNING: '🟢', PAUSED: '⏸️', EXITED: '🔴' };\n\t\t\tconst lines = items.map((c) => `${icon[c.state] ?? '⚪'} <b>${esc(nameOf(c))}</b>${c.isUpdateAvailable ? ' ⬆️' : ''} — ${esc(c.status)}\\n    /logs_${cmd(nameOf(c))}  /restart_${cmd(nameOf(c))}${c.state === 'RUNNING' ? '' : '  /start_' + cmd(nameOf(c))}`);\n\t\t\tconst running = items.filter((c) => c.state === 'RUNNING').length;\n\t\t\treturn done(s, clip(`🐳 <b>${items.length} containers</b> (${running} running)\\n\\n${lines.join('\\n')}`));\n\t\t}\n\t\tcase 'updates.refreshed':\n\t\t\treturn next(s, 'updates.statuses', { query: Q.containerUpdateStatuses });\n\t\tcase 'updates.statuses': {\n\t\t\tconst names = (d.docker?.containerUpdateStatuses ?? []).filter((x) => x.updateStatus === 'UPDATE_AVAILABLE').map((x) => x.name);\n\t\t\treturn done(s, names.length\n\t\t\t\t? `⬆️ <b>${names.length} update(s) available</b>\\n\\n${names.map((n) => `• ${esc(n)}  /update_${cmd(n)}`).join('\\n')}\\n\\nUpdate all (except excluded): /update_all`\n\t\t\t\t: '✅ All containers are up to date.');\n\t\t}\n\t\tcase 'updateAll.refreshed':\n\t\t\treturn next(s, 'updateAll.listed', { query: Q.containers });\n\t\tcase 'updateAll.listed': {\n\t\t\tconst excluded = excludedSet(s.cfg);\n\t\t\tconst withUpdates = containers().filter((c) => c.isUpdateAvailable === true);\n\t\t\tconst todo = withUpdates.filter((c) => !excluded.has(nameOf(c).toLowerCase()));\n\t\t\tconst skipped = withUpdates.filter((c) => excluded.has(nameOf(c).toLowerCase())).map(nameOf);\n\t\t\tif (!todo.length) {\n\t\t\t\tif (s.scheduled) return { ...done(s, ''), silent: true };\n\t\t\t\treturn done(s, `✅ Nothing to update.${skipped.length ? `\\nSkipped (excluded): ${esc(skipped.join(', '))}` : ''}`);\n\t\t\t}\n\t\t\treturn next({ ...s, skipped }, 'updated', { query: M.dockerUpdateMany, variables: { ids: todo.map((c) => c.id) } });\n\t\t}\n\t\tcase 'updated':\n\t\t\treturn done(s, fmtUpdated(s, d.docker?.updateContainers ?? []));\n\t\tcase 'update.resolved':\n\t\tcase 'restart.resolved':\n\t\tcase 'start.resolved':\n\t\tcase 'stop.resolved':\n\t\tcase 'logs.resolved': {\n\t\t\tconst list = containers();\n\t\t\tconst ids = [];\n\t\t\tfor (const n of s.names ?? []) {\n\t\t\t\tconst m = matchContainer(list, n);\n\t\t\t\tif (!m) return done(s, `❌ ${esc(s.action)} <b>${esc(n)}</b> failed: no container with that name. See /containers`);\n\t\t\t\tids.push(m.id);\n\t\t\t}\n\t\t\tif (s.action === 'update') return next(s, 'updated', { query: M.dockerUpdateMany, variables: { ids } });\n\t\t\tif (s.action === 'logs') return next(s, 'logs.done', { query: Q.containerLogs, variables: { id: ids[0], tail: Number(s.cfg?.logLines ?? 30) } });\n\t\t\tconst op = s.action;\n\t\t\treturn next({ ...s, container: s.names[0] }, 'action.done', { query: M.dockerAction(op), variables: { id: ids[0] } });\n\t\t}\n\t\tcase 'action.done': {\n\t\t\tconst c = d.docker?.[s.action];\n\t\t\tconst verb = { restart: 'Restarted', start: 'Started', stop: 'Stopped' }[s.action];\n\t\t\treturn done(s, `✅ ${verb} <b>${esc(nameOf(c))}</b> — ${esc(String(c.state).toLowerCase())} (${esc(c.status)})`);\n\t\t}\n\t\tcase 'logs.done': {\n\t\t\tconst logs = d.docker?.logs ?? { lines: [] };\n\t\t\tconst name = s.names[0];\n\t\t\tconst lines = R.filterLogLines(logs.lines.map((l) => ({ timestamp: l.timestamp, line: l.message })), { analyze: true, minSeverity: 'all' });\n\t\t\tconst mark = { critical: '🔴', warning: '🟠', info: '🔵' };\n\t\t\tlet body = lines.map((l) => `${l.severity ? mark[l.severity] + ' ' : ''}${l.line}`).join('\\n');\n\t\t\tif (body.length > 3000) body = '…' + body.slice(-3000);\n\t\t\tconst flagged = lines.filter((l) => l.severity === 'critical' || l.severity === 'warning');\n\t\t\tconst steps = [...new Set(flagged.flatMap((l) => l.nextSteps ?? []))].slice(0, 3);\n\t\t\treturn done(s, clip([\n\t\t\t\t`📜 <b>${esc(name)}</b> — last ${lines.length} line(s)${flagged.length ? `, ${flagged.length} flagged` : ''}`,\n\t\t\t\t`<pre>${esc(body) || '(empty)'}</pre>`,\n\t\t\t\tsteps.length ? '<b>Next steps</b>\\n' + steps.map((x, i) => `${i + 1}. ${esc(x)}`).join('\\n') : '',\n\t\t\t\t`/restart_${cmd(name)}  /containers`,\n\t\t\t].filter(Boolean).join('\\n\\n')));\n\t\t}\n\t\tdefault:\n\t\t\treturn done(s, `❌ Unknown stage ${esc(s.stage)}`);\n\t}\n}\nconst SYSLOG_QUERY = `query ($path: String!, $lines: Int, $startLine: Int) {\n\tinfo { os { hostname } }\n\tlogFile(path: $path, lines: $lines, startLine: $startLine) { path content totalLines startLine }\n}`;\nfunction syslogRequest(cfg, store) {\n\tconst path = cfg?.logPath || '/var/log/syslog';\n\tconst last = store.syslogLast;\n\tif (last === undefined) return { query: SYSLOG_QUERY, variables: { path, lines: 1 } };\n\treturn { query: SYSLOG_QUERY, variables: { path, lines: Number(cfg?.maxLines ?? 2000), startLine: last + 1 } };\n}\nfunction apiDownAlert(cfg, err) {\n\treturn [{\n\t\thostname: 'Unraid', source: 'api', severity: 'critical', key: 'api:unreachable', category: 'api',\n\t\ttitle: 'Unraid API not reachable', details: err,\n\t\tnextSteps: ['Check that the server is up and the WebGUI answers at cfg.unraidUrl.', 'Check the Unraid header credential (x-api-key) is still valid.'],\n\t\tcfg,\n\t}];\n}\nfunction syslogResult(cfg, store, res) {\n\tconst err = apiError(res);\n\tif (err) return apiDownAlert(cfg, err);\n\tconst f = res.data.logFile;\n\tconst hostname = res.data.info?.os?.hostname;\n\tconst last = store.syslogLast;\n\tif (last === undefined) {\n\t\tstore.syslogLast = f.totalLines; // first run: baseline only\n\t\treturn [];\n\t}\n\tif (f.totalLines < last) {\n\t\tstore.syslogLast = 0; // rotated: read the new file from the top next time\n\t\treturn [];\n\t}\n\tconst raw = R.splitLogContent(f.content, f.startLine);\n\tstore.syslogLast = Math.min(f.totalLines, (f.startLine ?? last + 1) + raw.length - 1);\n\tconst minSeverity = cfg?.minSeverity || 'warning';\n\tconst lines = R.filterLogLines(raw, { analyze: true, minSeverity });\n\tif (!lines.length) return [];\n\tconst worst = lines.reduce((acc, l) => (l.severity && R.severityAtLeast(l.severity, acc) ? l.severity : acc), 'info');\n\treturn [{\n\t\thostname, source: 'logFile', path: f.path, severity: worst,\n\t\tcategories: [...new Set(lines.map((l) => l.category).filter(Boolean))],\n\t\tcount: lines.length, nextSteps: [...new Set(lines.flatMap((l) => l.nextSteps ?? []))], lines, cfg,\n\t}];\n}\nfunction healthResult(cfg, store, res) {\n\tconst err = apiError(res);\n\tif (err) return apiDownAlert(cfg, err);\n\tconst ignore = String(cfg?.ignoreContainers ?? '').split(',').map((x) => x.trim()).filter(Boolean);\n\tconst minSeverity = cfg?.minSeverity || 'warning';\n\tconst findings = R.analyzeHealth(res.data, { ignoreContainers: ignore }).filter((f) => R.severityAtLeast(f.severity, minSeverity));\n\tconst previous = store.healthKeys;\n\tstore.healthKeys = findings.map((f) => f.key);\n\tconst known = new Set(previous ?? []); // first run reports existing problems once\n\treturn findings.filter((f) => !known.has(f.key)).map((f) => ({ hostname: res.data.info?.os?.hostname, status: 'new', ...f, cfg }));\n}\n// ---- end of bundle ----\n\nreturn [{ json: sysPlan($input.first().json) }];"
+      },
+      "id": "031ece9e-07d3-4b2f-a37d-c539b077ab44",
+      "name": "Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "61cd6f6d-ccfc-440d-a682-8eb166eb914f",
+              "leftValue": "={{ !!$json.request }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "45d24860-6f17-4f12-aa76-1e6320ffa463",
+      "name": "Call API?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        420,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.cfg.unraidUrl.replace(/\\/+$/, \"\") }}/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 120000
+        }
+      },
+      "id": "d1004743-07af-4729-aaa3-c0876a6a3172",
+      "name": "Unraid API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        60
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Unraid rules and command engine (generated; edit src/engine.js and lib/, then npm run build) ----\nconst __bundle = (() => {\nconst A = {}; (function (exports) {\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.DEFAULT_HEALTH_OPTIONS = exports.LOG_RULE_NAMES = void 0;\nexports.severityAtLeast = severityAtLeast;\nexports.sortFindings = sortFindings;\nexports.containerName = containerName;\nexports.classifyLogLine = classifyLogLine;\nexports.analyzeHealth = analyzeHealth;\nexports.summarizeFindings = summarizeFindings;\nconst SEVERITY_RANK = { info: 0, warning: 1, critical: 2 };\nfunction severityAtLeast(severity, minimum) {\n    return SEVERITY_RANK[severity] >= SEVERITY_RANK[minimum];\n}\nfunction sortFindings(findings) {\n    return [...findings].sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.key.localeCompare(b.key));\n}\nfunction containerName(container) {\n    const first = container.names?.find((n) => n) ?? container.id ?? '';\n    return first.replace(/^\\//, '');\n}\nconst num = (value) => {\n    if (value === null || value === undefined || value === '')\n        return undefined;\n    const n = Number(value);\n    return Number.isFinite(n) ? n : undefined;\n};\nconst pct = (used, total) => {\n    const u = num(used);\n    const t = num(total);\n    return u !== undefined && t ? Math.round((u / t) * 1000) / 10 : undefined;\n};\nconst LOG_RULES = [\n    {\n        rule: 'disk-io-error',\n        pattern: /\\b(I\\/O error|blk_update_request|critical medium error|Buffer I\\/O error|md: disk\\d+ (read|write) error|ata\\d+(\\.\\d+)?: .*(failed command|exception|hard resetting link|link is slow|SError)|UNC\\b|end_request)/i,\n        severity: 'critical',\n        category: 'disk',\n        nextSteps: [\n            'Identify the disk from the ataX / sdX / diskN in the line (Tools › System Devices or Main tab).',\n            'Run a SMART extended test on that disk and check reallocated / pending sector counts.',\n            'Reseat or replace the SATA/SAS cable and power cable; link resets are usually cabling.',\n            'If the disk is disabled in the array, do not write to it; rebuild from parity once the cause is fixed.',\n        ],\n    },\n    {\n        rule: 'filesystem-corruption',\n        pattern: /\\b(BTRFS (error|critical|warning)|XFS \\(.*\\): (Corruption|Metadata|Internal error|log I\\/O error)|EXT4-fs error|ZFS.*(error|faulted|degraded)|checksum error|csum failed|parent transid verify failed)/i,\n        severity: 'critical',\n        category: 'filesystem',\n        nextSteps: [\n            'Note the affected device (e.g. md1p1, nvme0n1p1) and stop writing to it.',\n            'Start the array in maintenance mode and run a filesystem check (Main › disk › Check Filesystem Status).',\n            'For BTRFS pools run a scrub; for ZFS run \"zpool status -v\" and a scrub.',\n            'Run memtest if checksum errors keep appearing on several devices (bad RAM causes them).',\n        ],\n    },\n    {\n        rule: 'out-of-memory',\n        pattern: /\\b(Out of memory|oom-kill|oom_reaper|invoked oom-killer|Killed process \\d+)/i,\n        severity: 'critical',\n        category: 'memory',\n        nextSteps: [\n            'Find the killed process / container in the line and set a memory limit on it (--memory=… in Extra Parameters).',\n            'Check for containers writing to RAM (paths mapped to /tmp or not to /mnt/user) filling the rootfs.',\n            'Review VM memory allocations against total RAM.',\n        ],\n    },\n    {\n        rule: 'hardware-mce',\n        pattern: /\\b(Machine check|mce: \\[Hardware Error\\]|Hardware Error|EDAC .*(error|CE|UE)|PCIe Bus Error|AER: (Corrected|Uncorrected))/i,\n        severity: 'critical',\n        category: 'hardware',\n        nextSteps: [\n            'Install mcelog (NerdTools / Nerd Pack) to decode the machine check, or check the BIOS event log.',\n            'Run memtest86 for at least one full pass.',\n            'Update the BIOS and check CPU / VRM temperatures and PSU health.',\n        ],\n    },\n    {\n        rule: 'kernel-trace',\n        pattern: /\\b(Call Trace|kernel BUG|general protection fault|Kernel panic|BUG: unable to handle|watchdog: BUG: soft lockup|rcu_sched self-detected stall|macvlan.*(call trace|broadcast))/i,\n        severity: 'critical',\n        category: 'kernel',\n        nextSteps: [\n            'Download diagnostics (Tools › Diagnostics) while the trace is still in the syslog.',\n            'If the trace mentions macvlan, switch Docker custom networks to ipvlan (Settings › Docker).',\n            'Check that Unraid and plugins are up to date; post the diagnostics on the Unraid forum if it repeats.',\n        ],\n    },\n    {\n        rule: 'disk-space',\n        pattern: /\\b(No space left on device|disk quota exceeded|cache.*(full|is full)|docker\\.img.*(full|100%)|ENOSPC)/i,\n        severity: 'critical',\n        category: 'storage',\n        nextSteps: [\n            'Check docker.img / cache / array usage on the Main tab.',\n            'Run the Mover if the cache is full, and set a minimum free space on shares.',\n            'Find containers writing inside docker.img (Docker › Container Size) and map their paths to appdata.',\n        ],\n    },\n    {\n        rule: 'parity-errors',\n        pattern: /\\b(parity (check|sync).*(error|incorrect)|sync errors?|Parity.*finished.*\\d+ errors)/i,\n        severity: 'warning',\n        category: 'parity',\n        nextSteps: [\n            'If this follows an unclean shutdown, run a correcting parity check.',\n            'If errors repeat on consecutive checks, run memtest and check disk SMART data.',\n        ],\n    },\n    {\n        rule: 'auth-failure',\n        pattern: /\\b(authentication failure|Failed password|Invalid user|Failed login|webGUI: Unsuccessful login|refused connect|Bad protocol version)/i,\n        severity: 'warning',\n        category: 'security',\n        nextSteps: [\n            'Check the source IP: if it is not on your LAN, the server is exposed to the internet.',\n            'Disable port forwarding for SSH / WebGUI; use WireGuard, Tailscale or Unraid Connect remote access instead.',\n            'Set a strong root password and consider disabling SSH password login.',\n        ],\n    },\n    {\n        rule: 'segfault',\n        pattern: /\\b(segfault at|traps: .* (general protection|trap divide error)|core dumped)/i,\n        severity: 'warning',\n        category: 'application',\n        nextSteps: [\n            'Identify the process; if it belongs to a container, restart it and check for an image update.',\n            'Repeated segfaults across processes can point to bad RAM; run memtest.',\n        ],\n    },\n    {\n        rule: 'docker-error',\n        pattern: /\\b(dockerd|containerd|docker)\\b.*\\b(error|failed|cannot|unable)\\b/i,\n        severity: 'warning',\n        category: 'docker',\n        nextSteps: [\n            'Check the named container\\'s own log (Docker › container › Logs) for the root cause.',\n            'Restart the container; if Docker itself fails, check that docker.img is not full or corrupted.',\n        ],\n    },\n    {\n        rule: 'network',\n        pattern: /\\b(Link is Down|NIC Link is Down|link down|carrier lost|bond\\d+: .*(link status definitely down|No active)|duplicate address detected|DHCP.*(failed|timeout))/i,\n        severity: 'warning',\n        category: 'network',\n        nextSteps: [\n            'Check the network cable, switch port and NIC; note which interface went down.',\n            'If it flaps, check for duplicate IPs and bonding / bridging settings (Settings › Network).',\n        ],\n    },\n    {\n        rule: 'temperature',\n        pattern: /\\b(temperature above threshold|cpu clock throttled|Package temperature|overheat|thermal)\\b/i,\n        severity: 'warning',\n        category: 'temperature',\n        nextSteps: [\n            'Check fans, airflow and dust; confirm CPU cooler mounting.',\n            'Review fan curves (Dynamix Auto Fan Control) and disk temperature thresholds.',\n        ],\n    },\n    {\n        rule: 'app-fatal',\n        pattern: /\\b(fatal( error)?:|panic:|unhandled exception|uncaught exception|traceback \\(most recent call last\\)|database disk image is malformed|database is locked|corrupt(ed|ion)\\b)/i,\n        severity: 'warning',\n        category: 'application',\n        nextSteps: [\n            'Read the lines before this one in the container log for the root cause.',\n            'For database corruption: stop the container, back up its appdata, then repair or restore the database.',\n            'Check the appdata path is on a healthy disk / pool and not full.',\n        ],\n    },\n    {\n        rule: 'generic-error',\n        pattern: /\\b(error|failed|failure|fatal|critical|panic|denied)\\b/i,\n        severity: 'info',\n        category: 'general',\n        nextSteps: ['Look at the surrounding log lines for context; repeated occurrences deserve a closer look.'],\n    },\n];\nconst BENIGN = [\n    /ACPI (Error|Warning|BIOS Error).*(AE_NOT_FOUND|AE_ALREADY_EXISTS)/i, // Common BIOS table noise.\n    /\\bcorrected error\\b.*\\bPCIe\\b.*\\bReceiver Error\\b/i,\n    /\\b(error|failed)=0\\b/i,\n];\nfunction classifyLogLine(line) {\n    if (!line.trim() || BENIGN.some((p) => p.test(line)))\n        return null;\n    for (const r of LOG_RULES) {\n        if (r.pattern.test(line))\n            return { severity: r.severity, category: r.category, rule: r.rule, nextSteps: r.nextSteps };\n    }\n    return null;\n}\nexports.LOG_RULE_NAMES = LOG_RULES.map((r) => r.rule);\nexports.DEFAULT_HEALTH_OPTIONS = {\n    diskUsageWarningPercent: 90,\n    diskUsageCriticalPercent: 97,\n    defaultTempWarning: 45,\n    defaultTempCritical: 55,\n    defaultSsdTempWarning: 60,\n    defaultSsdTempCritical: 70,\n    memoryWarningPercent: 90,\n    cpuWarningPercent: 95,\n    reportStoppedAutostartContainers: true,\n    reportContainerUpdates: true,\n    includeUnraidNotifications: true,\n    ignoreContainers: [],\n};\nconst diskLabel = (d) => d.name || d.device || d.id;\nfunction analyzeHealth(snapshot, options = {}) {\n    const o = { ...exports.DEFAULT_HEALTH_OPTIONS, ...options };\n    const findings = [];\n    const array = snapshot.array;\n    if (array?.state && array.state !== 'STARTED') {\n        findings.push({\n            key: `array:state:${array.state}`,\n            severity: 'critical',\n            category: 'array',\n            title: `Array is ${array.state}`,\n            details: `The Unraid array is in state ${array.state}; shares, Docker and VMs on the array are unavailable.`,\n            nextSteps: array.state === 'STOPPED'\n                ? ['If this was not intentional, check the Main tab for missing disks before starting the array.', 'Start the array once all disks are present.']\n                : ['Open the Main tab: the state names the problem (missing / wrong / too small disk).', 'Do not start the array or format anything until the disk assignment is correct.'],\n            suggestedAction: array.state === 'STOPPED' ? { resource: 'array', operation: 'start' } : undefined,\n        });\n    }\n    const arrayDisks = [...(array?.parities ?? []), ...(array?.disks ?? []), ...(array?.caches ?? [])];\n    for (const d of arrayDisks) {\n        const label = diskLabel(d);\n        if (d.status && !['DISK_OK', 'DISK_NP'].includes(d.status)) {\n            findings.push({\n                key: `disk:status:${d.id}:${d.status}`,\n                severity: 'critical',\n                category: 'disk',\n                title: `${label} is ${d.status.replace(/^DISK_/, '').toLowerCase()}`,\n                details: `${d.type ?? 'Disk'} ${label} (${d.device ?? 'no device'}) reports status ${d.status}.`,\n                nextSteps: d.status.includes('DSBL') || d.status === 'DISK_INVALID'\n                    ? [\n                        'The disk is disabled (red X) and is being emulated from parity. Do not write heavily to the array.',\n                        'Check SMART data and cabling, then download diagnostics before changing anything.',\n                        'Rebuild onto the same disk (if healthy) or a replacement: stop array, unassign, start, stop, reassign, start.',\n                    ]\n                    : ['Check the Main tab for the disk assignment and whether the disk is physically connected.', 'Download diagnostics before reassigning disks.'],\n            });\n        }\n        const errors = num(d.numErrors);\n        if (errors && errors > 0) {\n            findings.push({\n                key: `disk:errors:${d.id}`,\n                severity: 'warning',\n                category: 'disk',\n                title: `${label} has ${errors} read/write error(s)`,\n                details: `The array driver recorded ${errors} unrecoverable I/O errors on ${label} since the counters were last cleared.`,\n                nextSteps: ['Run a SMART extended test on the disk.', 'Check / replace the SATA and power cables.', 'Clear the statistics after fixing so new errors stand out.'],\n            });\n        }\n        if (d.temp !== null && d.temp !== undefined) {\n            const ssd = d.rotational === false;\n            const crit = d.critical ?? (ssd ? o.defaultSsdTempCritical : o.defaultTempCritical);\n            const warn = d.warning ?? (ssd ? o.defaultSsdTempWarning : o.defaultTempWarning);\n            const level = d.temp >= crit ? 'critical' : d.temp >= warn ? 'warning' : null;\n            if (level) {\n                findings.push({\n                    key: `disk:temp:${d.id}:${level}`,\n                    severity: level,\n                    category: 'temperature',\n                    title: `${label} is at ${d.temp}°C`,\n                    details: `${label} temperature ${d.temp}°C exceeds the ${level} threshold (${level === 'critical' ? crit : warn}°C).`,\n                    nextSteps: ['Check case fans and airflow over the drive cage.', 'Pause a running parity check if it is driving the temperature up.', 'Review fan control and per-disk thresholds (Settings › Disk Settings).'],\n                });\n            }\n        }\n        const usage = pct(d.fsUsed, d.fsSize);\n        if (usage !== undefined && usage >= o.diskUsageWarningPercent) {\n            const level = usage >= o.diskUsageCriticalPercent ? 'critical' : 'warning';\n            findings.push({\n                key: `disk:usage:${d.id}:${level}`,\n                severity: level,\n                category: 'storage',\n                title: `${label} is ${usage}% full`,\n                details: `Filesystem on ${label} is ${usage}% used.`,\n                nextSteps: d.type === 'CACHE'\n                    ? ['Run the Mover (Main › Move) and check share cache settings.', 'Set a minimum free space on the pool so writes overflow to the array.']\n                    : ['Set a minimum free space on shares and check the split level / allocation method.', 'Plan a new or larger disk if all data disks are filling up.'],\n            });\n        }\n    }\n    const parity = array?.parityCheckStatus;\n    if (parity?.status === 'FAILED') {\n        findings.push({\n            key: 'parity:failed',\n            severity: 'critical',\n            category: 'parity',\n            title: 'Last parity check failed',\n            details: 'The most recent parity check did not finish successfully.',\n            nextSteps: ['Check the syslog around the end of the check for disk errors.', 'Run the check again once disk issues are fixed.'],\n        });\n    }\n    else if (parity && (parity.errors ?? 0) > 0 && !parity.running) {\n        findings.push({\n            key: `parity:errors:${parity.errors}`,\n            severity: 'warning',\n            category: 'parity',\n            title: `Parity check found ${parity.errors} error(s)`,\n            details: `The last parity check (${parity.status}) reported ${parity.errors} sync errors.`,\n            nextSteps: ['After an unclean shutdown, run a correcting check once.', 'If errors return on the next non-correcting check, run memtest and inspect SMART data.'],\n        });\n    }\n    for (const d of snapshot.disks ?? []) {\n        if (d.smartStatus && d.smartStatus !== 'OK' && d.smartStatus !== 'UNKNOWN') {\n            findings.push({\n                key: `smart:${d.id}:${d.smartStatus}`,\n                severity: 'critical',\n                category: 'disk',\n                title: `SMART status of ${d.name || d.device} is ${d.smartStatus}`,\n                details: `Physical disk ${d.device} reports SMART status ${d.smartStatus}.`,\n                nextSteps: ['Back up anything on this disk that is not protected by parity.', 'Order a replacement and run an extended SMART test to confirm.'],\n            });\n        }\n    }\n    const ignored = new Set(o.ignoreContainers.map((n) => n.trim().toLowerCase()).filter(Boolean));\n    for (const c of snapshot.docker?.containers ?? []) {\n        const name = containerName(c);\n        if (ignored.has(name.toLowerCase()))\n            continue;\n        if (o.reportStoppedAutostartContainers && c.autoStart && c.state && c.state !== 'RUNNING') {\n            findings.push({\n                key: `container:down:${name}`,\n                severity: 'warning',\n                category: 'docker',\n                title: `Container ${name} is ${c.state.toLowerCase()}`,\n                details: `${name} (${c.image}) has autostart enabled but is ${c.state} — ${c.status ?? ''}`.trim(),\n                nextSteps: [\n                    `Read the last log lines of ${name} for the exit reason.`,\n                    `Restart ${name}; if it exits again, check its appdata paths and recent image changes.`,\n                ],\n                suggestedAction: { resource: 'dockerContainer', operation: c.state === 'PAUSED' ? 'unpause' : 'start', id: c.id, name },\n            });\n        }\n        if (o.reportContainerUpdates && c.isUpdateAvailable) {\n            findings.push({\n                key: `container:update:${name}`,\n                severity: 'info',\n                category: 'docker-update',\n                title: `Update available for ${name}`,\n                details: `A newer image is available for ${name} (${c.image}).`,\n                nextSteps: [`Read the release notes of ${c.image} for breaking changes.`, `Update ${name} (back up its appdata first for databases).`],\n                suggestedAction: { resource: 'dockerContainer', operation: 'update', id: c.id, name },\n            });\n        }\n    }\n    if (o.includeUnraidNotifications) {\n        for (const n of snapshot.notifications?.warningsAndAlerts ?? []) {\n            findings.push({\n                key: `notification:${n.id}`,\n                severity: n.importance === 'ALERT' ? 'critical' : 'warning',\n                category: 'unraid-notification',\n                title: n.subject || n.title || 'Unraid notification',\n                details: [n.title, n.description].filter(Boolean).join(' — '),\n                nextSteps: ['Open the notification in the Unraid WebGUI and archive it once handled.'],\n            });\n        }\n    }\n    const mem = snapshot.metrics?.memory?.percentTotal;\n    if (mem !== undefined && mem >= o.memoryWarningPercent) {\n        findings.push({\n            key: 'memory:high',\n            severity: 'warning',\n            category: 'memory',\n            title: `Memory usage at ${Math.round(mem)}%`,\n            details: `RAM usage is ${Math.round(mem)}% (swap ${Math.round(snapshot.metrics?.memory?.percentSwapTotal ?? 0)}%).`,\n            nextSteps: ['Find the heaviest containers (Docker › Advanced view / ctop).', 'Set memory limits on containers and check VM allocations.'],\n        });\n    }\n    const cpu = snapshot.metrics?.cpu?.percentTotal;\n    if (cpu !== undefined && cpu >= o.cpuWarningPercent) {\n        findings.push({\n            key: 'cpu:high',\n            severity: 'info',\n            category: 'cpu',\n            title: `CPU usage at ${Math.round(cpu)}%`,\n            details: `Total CPU usage is ${Math.round(cpu)}% at the time of the check.`,\n            nextSteps: ['Check whether a parity check, mover, transcode or backup is running.', 'Pin heavy containers / VMs to specific cores if this is persistent.'],\n        });\n    }\n    return sortFindings(findings);\n}\nfunction summarizeFindings(findings) {\n    const counts = { critical: 0, warning: 0, info: 0 };\n    for (const f of findings)\n        counts[f.severity]++;\n    const status = counts.critical ? 'critical' : counts.warning ? 'warning' : counts.info ? 'info' : 'ok';\n    return { status, counts, total: findings.length };\n}\n})(A);\nconst L = {}; (function (exports, __analysis) {\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.splitLogContent = splitLogContent;\nexports.compilePattern = compilePattern;\nexports.filterLogLines = filterLogLines;\nconst analysis_1 = __analysis;\nfunction splitLogContent(content, startLine) {\n    const raw = content.split(/\\r?\\n/);\n    if (raw.length && raw[raw.length - 1] === '')\n        raw.pop();\n    return raw.map((line, i) => ({ lineNumber: startLine ? startLine + i : undefined, line }));\n}\nfunction compilePattern(pattern) {\n    if (!pattern?.trim())\n        return undefined;\n    try {\n        return new RegExp(pattern, 'i');\n    }\n    catch (error) {\n        throw new Error(`Invalid filter pattern \"${pattern}\": ${error.message}`);\n    }\n}\nfunction filterLogLines(lines, filter) {\n    const regex = compilePattern(filter.pattern);\n    const out = [];\n    for (const l of lines) {\n        if (regex && !regex.test(l.line))\n            continue;\n        if (filter.analyze) {\n            const match = (0, analysis_1.classifyLogLine)(l.line);\n            if (filter.minSeverity && filter.minSeverity !== 'all' && (!match || !(0, analysis_1.severityAtLeast)(match.severity, filter.minSeverity)))\n                continue;\n            out.push(match ? { ...l, ...match } : l);\n        }\n        else {\n            out.push(l);\n        }\n    }\n    return out;\n}\n})(L, A);\nconst QM = {}; (function (exports) {\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.M = exports.Q = exports.METRICS_FIELDS = exports.NOTIFICATION_FIELDS = exports.PHYSICAL_DISK_FIELDS = exports.ARRAY_FIELDS = exports.PARITY_FIELDS = exports.ARRAY_DISK_FIELDS = exports.CONTAINER_FIELDS = void 0;\nexports.CONTAINER_FIELDS = `\n\tid names image imageId state status created autoStart autoStartOrder\n\tisUpdateAvailable isRebuildReady isOrphaned webUiUrl iconUrl projectUrl\n\tports { ip privatePort publicPort type }`;\nexports.ARRAY_DISK_FIELDS = `\n\tid idx name device size status type temp warning critical rotational isSpinning\n\tnumReads numWrites numErrors fsSize fsFree fsUsed fsType comment`;\nexports.PARITY_FIELDS = 'date duration speed status errors progress correcting paused running';\nexports.ARRAY_FIELDS = `\n\tid state\n\tcapacity { kilobytes { free used total } disks { free used total } }\n\tparityCheckStatus { ${exports.PARITY_FIELDS} }\n\tparities { ${exports.ARRAY_DISK_FIELDS} }\n\tdisks { ${exports.ARRAY_DISK_FIELDS} }\n\tcaches { ${exports.ARRAY_DISK_FIELDS} }\n\tboot { ${exports.ARRAY_DISK_FIELDS} }`;\nexports.PHYSICAL_DISK_FIELDS = 'id device type name vendor size firmwareRevision serialNum interfaceType smartStatus temperature isSpinning';\nexports.NOTIFICATION_FIELDS = 'id title subject description importance link type timestamp formattedTimestamp';\nexports.METRICS_FIELDS = `\n\tcpu { percentTotal }\n\tmemory { total used free available percentTotal swapTotal swapUsed percentSwapTotal }`;\nexports.Q = {\n    online: '{ online }',\n    info: `{\n\t\tonline\n\t\tinfo {\n\t\t\ttime\n\t\t\tos { platform distro release kernel arch hostname uptime }\n\t\t\tcpu { manufacturer brand cores threads speed speedmax }\n\t\t\tsystem { manufacturer model virtual }\n\t\t}\n\t}`,\n    metrics: `{ metrics { ${exports.METRICS_FIELDS} } }`,\n    array: `{ array { ${exports.ARRAY_FIELDS} } }`,\n    parityHistory: `{ parityHistory { ${exports.PARITY_FIELDS} } }`,\n    disks: `{ disks { ${exports.PHYSICAL_DISK_FIELDS} } }`,\n    shares: '{ shares { id name free used size comment cache include exclude splitLevel } }',\n    containers: `{ docker { containers { ${exports.CONTAINER_FIELDS} } } }`,\n    containerNames: '{ docker { containers { id names state } } }',\n    container: `query ($id: PrefixedID!) { docker { container(id: $id) { ${exports.CONTAINER_FIELDS} } } }`,\n    containerLogs: `query ($id: PrefixedID!, $since: DateTime, $tail: Int) {\n\t\tdocker { logs(id: $id, since: $since, tail: $tail) { containerId cursor lines { timestamp message } } }\n\t}`,\n    containerUpdateStatuses: '{ docker { containerUpdateStatuses { name updateStatus } } }',\n    vms: '{ vms { domains { id name state } } }',\n    logFiles: '{ logFiles { name path size modifiedAt } }',\n    logFile: `query ($path: String!, $lines: Int, $startLine: Int) {\n\t\tlogFile(path: $path, lines: $lines, startLine: $startLine) { path content totalLines startLine }\n\t}`,\n    notifications: `query ($filter: NotificationFilter!) { notifications { list(filter: $filter) { ${exports.NOTIFICATION_FIELDS} } } }`,\n    notificationOverview: `{ notifications { overview {\n\t\tunread { info warning alert total }\n\t\tarchive { info warning alert total }\n\t} } }`,\n    warningsAndAlerts: `{ notifications { warningsAndAlerts { ${exports.NOTIFICATION_FIELDS} } } }`,\n    health: `{\n\t\tinfo { os { hostname uptime } }\n\t\tarray { ${exports.ARRAY_FIELDS} }\n\t\tdisks { ${exports.PHYSICAL_DISK_FIELDS} }\n\t\tdocker { containers { ${exports.CONTAINER_FIELDS} } }\n\t\tnotifications { warningsAndAlerts { ${exports.NOTIFICATION_FIELDS} } }\n\t\tmetrics { ${exports.METRICS_FIELDS} }\n\t}`,\n};\nexports.M = {\n    arraySetState: `mutation ($input: ArrayStateInput!) { array { setState(input: $input) { id state } } }`,\n    parityStart: 'mutation ($correct: Boolean!) { parityCheck { start(correct: $correct) } }',\n    parityPause: 'mutation { parityCheck { pause } }',\n    parityResume: 'mutation { parityCheck { resume } }',\n    parityCancel: 'mutation { parityCheck { cancel } }',\n    dockerAction: (action) => `mutation ($id: PrefixedID!) { docker { ${action}(id: $id) { ${exports.CONTAINER_FIELDS} } } }`,\n    dockerUpdateMany: `mutation ($ids: [PrefixedID!]!) { docker { updateContainers(ids: $ids) { ${exports.CONTAINER_FIELDS} } } }`,\n    dockerUpdateAll: `mutation { docker { updateAllContainers { ${exports.CONTAINER_FIELDS} } } }`,\n    dockerRefreshDigests: 'mutation { refreshDockerDigests }',\n    vmAction: (action) => `mutation ($id: PrefixedID!) { vm { ${action}(id: $id) } }`,\n    createNotification: `mutation ($input: NotificationData!) { createNotification(input: $input) { ${exports.NOTIFICATION_FIELDS} } }`,\n    notifyIfUnique: `mutation ($input: NotificationData!) { notifyIfUnique(input: $input) { ${exports.NOTIFICATION_FIELDS} } }`,\n    archiveNotification: `mutation ($id: PrefixedID!) { archiveNotification(id: $id) { ${exports.NOTIFICATION_FIELDS} } }`,\n    archiveAll: `mutation ($importance: NotificationImportance) { archiveAll(importance: $importance) {\n\t\tunread { info warning alert total } archive { info warning alert total }\n\t} }`,\n};\n})(QM);\nreturn { R: { ...A, ...L }, Q: QM.Q, M: QM.M };\n})();\nconst R = __bundle.R, Q = __bundle.Q, M = __bundle.M;\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst cmd = (n) => String(n ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');\nconst clip = (s, n = 3900) => (s.length > n ? s.slice(0, n - 20) + '\\n…(truncated)' : s);\nconst nameOf = (c) => R.containerName(c);\nfunction apiError(res) {\n\tif (!res) return 'No response from the Unraid API';\n\tif (res.error) {\n\t\tconst e = res.error;\n\t\treturn `Unraid API request failed: ${e.message ?? e.description ?? JSON.stringify(e)}`;\n\t}\n\tif (Array.isArray(res.errors) && res.errors.length) {\n\t\tconst msg = res.errors.map((e) => (e.path?.length ? `${e.path.join('.')}: ${e.message}` : e.message)).join('; ');\n\t\tconst code = res.errors[0]?.extensions?.code;\n\t\tif (code === 'UNAUTHENTICATED') return `${msg} — the API key is invalid or was revoked; update the Unraid header credential.`;\n\t\tif (code === 'FORBIDDEN') return `${msg} — the API key lacks permission; give it the admin role.`;\n\t\treturn msg;\n\t}\n\tif (!res.data) return 'Unraid API returned no data';\n\treturn null;\n}\nfunction matchContainer(list, value) {\n\tconst v = String(value).trim();\n\tconst lower = v.replace(/^\\//, '').toLowerCase();\n\treturn (\n\t\tlist.find((c) => c.id === v || c.id.endsWith(`:${v}`)) ??\n\t\tlist.find((c) => nameOf(c).toLowerCase() === lower) ??\n\t\tlist.find((c) => cmd(nameOf(c)) === cmd(v))\n\t);\n}\nconst done = (s, text) => ({ ...s, request: null, text });\nconst next = (s, stage, request) => ({ ...s, stage, request });\nconst PREFIXED = ['update', 'restart', 'start', 'stop', 'logs', 'parity', 'archive'];\nconst DOCKER = ['containers', 'updates', 'update', 'restart', 'start', 'stop', 'logs'];\nfunction parseCommand(j) {\n\tconst msg = j.message ?? {};\n\tconst chatId = String(msg.chat?.id ?? '');\n\tconst allowed = String(j.cfg?.allowedChatIds ?? '').split(',').map((s) => s.trim()).filter(Boolean);\n\tconst text = String(msg.text ?? '').trim();\n\tlet [head = '', ...rest] = text.replace(/^\\//, '').split(/\\s+/);\n\thead = head.replace(/@\\w+$/, '').toLowerCase();\n\tlet confirmed = rest.includes('confirm');\n\trest = rest.filter((r) => r !== 'confirm');\n\tif (head.endsWith('_confirm')) {\n\t\tconfirmed = true;\n\t\thead = head.slice(0, -'_confirm'.length);\n\t}\n\tlet command = text.startsWith('/') ? head : 'help';\n\tlet arg = rest.join(' ');\n\tconst i = head.indexOf('_');\n\tif (i > 0 && PREFIXED.includes(head.slice(0, i))) {\n\t\tcommand = head.slice(0, i);\n\t\targ = [head.slice(i + 1), arg].filter(Boolean).join(' ');\n\t}\n\tif (command === 'start' && !arg) command = 'help'; // Telegram's \"start bot\"\n\treturn {\n\t\tchatId,\n\t\ttext,\n\t\tcommand,\n\t\targ,\n\t\tconfirmed,\n\t\tcfg: j.cfg,\n\t\tgroup: DOCKER.includes(command) ? 'docker' : command,\n\t\tauthorized: allowed.includes(chatId),\n\t\tconfigured: allowed.length > 0,\n\t};\n}\nconst HELP = [\n\t'<b>Server</b>\\n/status — health report with next steps\\n/info — uptime, CPU, RAM, array usage\\n/disks — disk status, temps, usage\\n/parity — parity status (/parity_start, /parity_pause, /parity_resume, /parity_cancel)\\n/syslog — recent warnings in the syslog\\n/notifications — unread Unraid notifications (/archive_all)\\n/vms — virtual machines',\n\t'<b>Docker</b>\\n/containers — list with quick actions\\n/updates — check for image updates\\n/update_all — update everything (asks first)\\n/update_&lt;name&gt; · /restart_&lt;name&gt; · /start_&lt;name&gt; · /stop_&lt;name&gt; · /logs_&lt;name&gt;',\n];\nconst INFO_QUERY = `{\n\tinfo { os { hostname distro release uptime } cpu { brand cores threads } }\n\tmetrics { cpu { percentTotal } memory { total available percentTotal } }\n\tarray { state capacity { kilobytes { used total } } }\n}`;\nfunction sysPlan(p) {\n\tconst s = { chatId: p.chatId, cfg: p.cfg, command: p.command, arg: p.arg, group: p.group, request: null };\n\tswitch (p.group) {\n\t\tcase 'status':\n\t\t\treturn next(s, 'status', { query: Q.health });\n\t\tcase 'info':\n\t\t\treturn next(s, 'info', { query: INFO_QUERY });\n\t\tcase 'disks':\n\t\t\treturn next(s, 'disks', { query: Q.array });\n\t\tcase 'parity': {\n\t\t\tconst action = ['start', 'pause', 'resume', 'cancel'].includes(p.arg) ? p.arg : 'status';\n\t\t\tif (action === 'status') return next(s, 'parity', { query: Q.parityHistory });\n\t\t\tif (action === 'start' && !p.confirmed) {\n\t\t\t\treturn done(s, '⚠️ Start a (non-correcting) parity check? It reads every disk for many hours.\\nTap /parity_start_confirm to proceed.');\n\t\t\t}\n\t\t\tconst mutation = { start: M.parityStart, pause: M.parityPause, resume: M.parityResume, cancel: M.parityCancel }[action];\n\t\t\treturn next({ ...s, parityAction: action }, 'parity.op', { query: mutation, variables: action === 'start' ? { correct: false } : {} });\n\t\t}\n\t\tcase 'syslog':\n\t\t\treturn next(s, 'syslog', { query: Q.logFile, variables: { path: '/var/log/syslog', lines: 2000 } });\n\t\tcase 'notifications':\n\t\t\treturn next(s, 'notifications', { query: Q.notifications, variables: { filter: { type: 'UNREAD', offset: 0, limit: 10 } } });\n\t\tcase 'archive':\n\t\t\treturn next(s, 'archive', { query: M.archiveAll, variables: {} });\n\t\tcase 'vms':\n\t\t\treturn next(s, 'vms', { query: Q.vms });\n\t\tcase 'help':\n\t\t\treturn { ...done(s, `🖥️ <b>Unraid bot</b>\\n\\n${HELP.join('\\n\\n')}`), menu: true };\n\t\tdefault:\n\t\t\treturn { ...done(s, `❓ Unknown command <code>${esc(p.text)}</code>\\n\\n${HELP.join('\\n\\n')}`), menu: true };\n\t}\n}\nconst SEV_ICON = { ok: '✅', info: '🔵', warning: '🟠', critical: '🔴' };\nfunction sysStep(s, res) {\n\tconst err = apiError(res);\n\tif (err) return done(s, `❌ ${esc(err)}`);\n\tconst d = res.data;\n\tswitch (s.stage) {\n\t\tcase 'status': {\n\t\t\tconst findings = R.analyzeHealth(d);\n\t\t\tconst sum = R.summarizeFindings(findings);\n\t\t\tconst lines = findings.slice(0, 8).map((f) => {\n\t\t\t\tconst a = f.suggestedAction;\n\t\t\t\tconst action = a?.resource === 'dockerContainer' && a.name ? `  /${a.operation}_${cmd(a.name)}` : '';\n\t\t\t\treturn `${SEV_ICON[f.severity]} <b>${esc(f.title)}</b>${action}\\n    → ${esc(f.nextSteps?.[0] ?? '')}`;\n\t\t\t});\n\t\t\treturn done(s, clip([\n\t\t\t\t`${SEV_ICON[sum.status]} <b>${esc(d.info?.os?.hostname)}</b> — ${sum.status} · array ${esc(String(d.array?.state).toLowerCase())}`,\n\t\t\t\t`${sum.counts.critical} critical · ${sum.counts.warning} warning · ${sum.counts.info} info`,\n\t\t\t\tlines.join('\\n') || 'No problems found.',\n\t\t\t\t'/info  /disks  /syslog  /containers',\n\t\t\t].join('\\n\\n')));\n\t\t}\n\t\tcase 'info': {\n\t\t\tconst { info, metrics: m, array: a } = d;\n\t\t\tconst gb = (b) => (Number(b) / 1024 ** 3).toFixed(1);\n\t\t\tconst tb = (kb) => (Number(kb) / 1024 ** 3).toFixed(2);\n\t\t\tconst up = info.os?.uptime ? Math.floor((Date.now() - new Date(info.os.uptime)) / 3600000) : null;\n\t\t\tconst kb = a?.capacity?.kilobytes ?? {};\n\t\t\treturn done(s, [\n\t\t\t\t`🖥️ <b>${esc(info.os?.hostname)}</b> — ${esc(info.os?.distro)} ${esc(info.os?.release)}`,\n\t\t\t\tup !== null ? `⏱️ Up ${Math.floor(up / 24)}d ${up % 24}h` : '',\n\t\t\t\t`🧠 ${esc(info.cpu?.brand)} — ${info.cpu?.cores}C/${info.cpu?.threads}T · load ${Math.round(m?.cpu?.percentTotal ?? 0)}%`,\n\t\t\t\tm?.memory ? `💾 RAM ${Math.round(m.memory.percentTotal)}% of ${gb(m.memory.total)} GB (available ${gb(m.memory.available)} GB)` : '',\n\t\t\t\tkb.total ? `🗄️ Array ${esc(String(a.state).toLowerCase())} — ${tb(kb.used)} / ${tb(kb.total)} TB used (${Math.round((kb.used / kb.total) * 100)}%)` : '',\n\t\t\t].filter(Boolean).join('\\n'));\n\t\t}\n\t\tcase 'disks': {\n\t\t\tconst a = d.array;\n\t\t\tconst line = (x) => {\n\t\t\t\tconst used = x.fsSize ? Math.round((Number(x.fsUsed) / Number(x.fsSize)) * 100) + '%' : '';\n\t\t\t\tconst temp = x.temp === null || x.temp === undefined ? (x.isSpinning === false ? '💤' : '–') : x.temp + '°C';\n\t\t\t\tconst ok = x.status === 'DISK_OK';\n\t\t\t\tconst errs = Number(x.numErrors) > 0 ? ` · ⚠️ ${x.numErrors} errors` : '';\n\t\t\t\treturn `${ok ? '🟢' : '🔴'} <b>${esc(x.name)}</b> (${esc(x.device ?? '')}) ${temp}${used ? ' · ' + used + ' used' : ''}${ok ? '' : ' · ' + esc(x.status)}${errs}`;\n\t\t\t};\n\t\t\tconst group = (title, list) => (list?.length ? `<b>${title}</b>\\n` + list.map(line).join('\\n') : '');\n\t\t\tconst p = a.parityCheckStatus ?? {};\n\t\t\treturn done(s, clip([\n\t\t\t\t`💽 Array <b>${esc(String(a.state).toLowerCase())}</b>`,\n\t\t\t\tgroup('Parity', a.parities),\n\t\t\t\tgroup('Data', a.disks),\n\t\t\t\tgroup('Pools', a.caches),\n\t\t\t\t`Parity check: ${esc(String(p.status ?? 'unknown').toLowerCase())}${p.running ? ` (${p.progress}%)` : ''}${p.date ? ' · last ' + new Date(p.date).toISOString().slice(0, 10) : ''}${p.errors ? ' · ' + p.errors + ' errors' : ''}`,\n\t\t\t\t'/parity  /syslog  /status',\n\t\t\t].filter(Boolean).join('\\n\\n')));\n\t\t}\n\t\tcase 'parity': {\n\t\t\tconst runs = (d.parityHistory ?? []).filter((r) => r.date).sort((a, b) => String(b.date).localeCompare(String(a.date)));\n\t\t\tconst fmt = (r) => `• ${new Date(r.date).toISOString().slice(0, 10)} — ${esc(String(r.status).toLowerCase())}, ${Math.round((r.duration ?? 0) / 3600)}h, ${r.errors ?? 0} errors${r.running ? ` (running ${r.progress}%)` : ''}`;\n\t\t\treturn done(s, ['🧮 <b>Parity checks</b>', runs.slice(0, 5).map(fmt).join('\\n') || 'No parity history.', '/parity_start  /parity_pause  /parity_resume  /parity_cancel'].join('\\n\\n'));\n\t\t}\n\t\tcase 'parity.op':\n\t\t\treturn done(s, `✅ Parity check: ${esc(s.parityAction)} sent. Check progress with /parity`);\n\t\tcase 'syslog': {\n\t\t\tconst f = d.logFile;\n\t\t\tconst lines = R.filterLogLines(R.splitLogContent(f.content, f.startLine), { analyze: true, minSeverity: 'warning' });\n\t\t\tif (!lines.length) return done(s, '✅ No warnings in the last 2000 syslog lines.');\n\t\t\tconst mark = { critical: '🔴', warning: '🟠' };\n\t\t\tconst byCat = {};\n\t\t\tfor (const l of lines) byCat[l.category] = (byCat[l.category] ?? 0) + 1;\n\t\t\tlet body = lines.slice(-12).map((l) => `${mark[l.severity] ?? ''} ${l.line}`).join('\\n');\n\t\t\tif (body.length > 2800) body = '…' + body.slice(-2800);\n\t\t\tconst steps = [...new Set(lines.filter((l) => l.severity === 'critical').flatMap((l) => l.nextSteps ?? []))].slice(0, 3);\n\t\t\treturn done(s, clip([\n\t\t\t\t`📋 <b>Syslog</b>: ${lines.length} warning/critical line(s) in the last 2000 lines`,\n\t\t\t\tObject.entries(byCat).map(([c, n]) => `${esc(c)}: ${n}`).join(' · '),\n\t\t\t\t`<pre>${esc(body)}</pre>`,\n\t\t\t\tsteps.length ? '<b>Next steps</b>\\n' + steps.map((x, i) => `${i + 1}. ${esc(x)}`).join('\\n') : '',\n\t\t\t].filter(Boolean).join('\\n\\n')));\n\t\t}\n\t\tcase 'notifications': {\n\t\t\tconst list = d.notifications?.list ?? [];\n\t\t\tconst icon = { ALERT: '🔴', WARNING: '🟠', INFO: '🔵' };\n\t\t\treturn done(s, list.length\n\t\t\t\t? clip(`🔔 <b>${list.length} unread notification(s)</b>\\n\\n` + list.map((n) => `${icon[n.importance] ?? '⚪'} <b>${esc(n.subject)}</b>\\n    ${esc(n.description)} <i>(${esc(n.formattedTimestamp ?? n.timestamp ?? '')})</i>`).join('\\n') + '\\n\\nArchive all: /archive_all')\n\t\t\t\t: '✅ No unread notifications.');\n\t\t}\n\t\tcase 'archive': {\n\t\t\tconst o = d.archiveAll ?? {};\n\t\t\treturn done(s, `🗂️ Archived. Unread now: ${o.unread?.total ?? 0}, archived: ${o.archive?.total ?? '?'}`);\n\t\t}\n\t\tcase 'vms': {\n\t\t\tconst list = d.vms?.domains ?? [];\n\t\t\treturn done(s, list.length\n\t\t\t\t? '🖥️ <b>Virtual machines</b>\\n' + list.map((v) => `${v.state === 'RUNNING' ? '🟢' : '⚪'} <b>${esc(v.name)}</b> — ${esc(String(v.state).toLowerCase())}`).join('\\n')\n\t\t\t\t: 'No virtual machines defined.');\n\t\t}\n\t\tdefault:\n\t\t\treturn done(s, `❌ Unknown stage ${esc(s.stage)}`);\n\t}\n}\nfunction dockerPlan(j) {\n\tconst chatId = j.chatId || j.cfg?.telegramChatId;\n\tconst command = j.command || 'scheduled';\n\tconst arg = String(j.arg ?? '').trim();\n\tconst s = { chatId, command, arg, scheduled: !j.command, cfg: j.cfg, request: null };\n\tconst usage = (c) => done(s, `Usage: /${c}_&lt;container&gt; — see /containers`);\n\tconst resolveFirst = (action, extra = {}) => next({ ...s, action, ...extra }, `${action}.resolved`, { query: Q.containerNames });\n\tif (command === 'scheduled') return next({ ...s, action: 'updateAll' }, 'updateAll.refreshed', { query: M.dockerRefreshDigests });\n\tif (command === 'containers') return next({ ...s, action: 'list' }, 'list', { query: Q.containers });\n\tif (command === 'updates') return next({ ...s, action: 'updates' }, 'updates.refreshed', { query: M.dockerRefreshDigests });\n\tif (command === 'update') {\n\t\tif (!arg) return usage('update');\n\t\tif (arg === 'all') {\n\t\t\treturn j.confirmed\n\t\t\t\t? next({ ...s, action: 'updateAll' }, 'updateAll.refreshed', { query: M.dockerRefreshDigests })\n\t\t\t\t: done(s, '⚠️ Update every container that has an update (except excluded ones)?\\nTap /update_all_confirm to proceed.');\n\t\t}\n\t\treturn resolveFirst('update', { names: arg.split(/[\\s,]+/).filter(Boolean) });\n\t}\n\tif (['restart', 'start', 'stop', 'logs'].includes(command)) {\n\t\tif (!arg) return usage(command);\n\t\tif (command === 'stop' && !j.confirmed) return done(s, `⚠️ Stop <b>${esc(arg)}</b>?\\nTap /stop_${cmd(arg)}_confirm to proceed.`);\n\t\treturn resolveFirst(command, { names: [arg] });\n\t}\n\treturn done(s, `Unknown Docker command /${esc(command)}. Try /help`);\n}\nfunction excludedSet(cfg) {\n\treturn new Set(String(cfg?.excludeFromUpdates ?? '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));\n}\nfunction fmtUpdated(s, updated) {\n\tconst skippedLine = s.skipped?.length ? `\\nSkipped (excluded): ${esc(s.skipped.join(', '))}` : '';\n\tconst lines = updated.map((c) => `• <b>${esc(nameOf(c))}</b>: ${esc(String(c.state).toLowerCase())} (${esc(c.image)})`);\n\treturn `⬆️ <b>Updated ${lines.length} container(s)</b>${s.scheduled ? ' (weekly window)' : ''}\\n${lines.join('\\n')}${skippedLine}`;\n}\nfunction dockerStep(s, res) {\n\tconst err = apiError(res);\n\tif (err) return done(s, `❌ ${s.action === 'updateAll' || s.action === 'update' ? '<b>Update failed</b>\\n' : ''}${esc(err)}`);\n\tconst d = res.data;\n\tconst containers = () => (d.docker?.containers ?? []);\n\tswitch (s.stage) {\n\t\tcase 'list': {\n\t\t\tconst items = containers().slice().sort((a, b) => nameOf(a).localeCompare(nameOf(b)));\n\t\t\tconst icon = { RUNNING: '🟢', PAUSED: '⏸️', EXITED: '🔴' };\n\t\t\tconst lines = items.map((c) => `${icon[c.state] ?? '⚪'} <b>${esc(nameOf(c))}</b>${c.isUpdateAvailable ? ' ⬆️' : ''} — ${esc(c.status)}\\n    /logs_${cmd(nameOf(c))}  /restart_${cmd(nameOf(c))}${c.state === 'RUNNING' ? '' : '  /start_' + cmd(nameOf(c))}`);\n\t\t\tconst running = items.filter((c) => c.state === 'RUNNING').length;\n\t\t\treturn done(s, clip(`🐳 <b>${items.length} containers</b> (${running} running)\\n\\n${lines.join('\\n')}`));\n\t\t}\n\t\tcase 'updates.refreshed':\n\t\t\treturn next(s, 'updates.statuses', { query: Q.containerUpdateStatuses });\n\t\tcase 'updates.statuses': {\n\t\t\tconst names = (d.docker?.containerUpdateStatuses ?? []).filter((x) => x.updateStatus === 'UPDATE_AVAILABLE').map((x) => x.name);\n\t\t\treturn done(s, names.length\n\t\t\t\t? `⬆️ <b>${names.length} update(s) available</b>\\n\\n${names.map((n) => `• ${esc(n)}  /update_${cmd(n)}`).join('\\n')}\\n\\nUpdate all (except excluded): /update_all`\n\t\t\t\t: '✅ All containers are up to date.');\n\t\t}\n\t\tcase 'updateAll.refreshed':\n\t\t\treturn next(s, 'updateAll.listed', { query: Q.containers });\n\t\tcase 'updateAll.listed': {\n\t\t\tconst excluded = excludedSet(s.cfg);\n\t\t\tconst withUpdates = containers().filter((c) => c.isUpdateAvailable === true);\n\t\t\tconst todo = withUpdates.filter((c) => !excluded.has(nameOf(c).toLowerCase()));\n\t\t\tconst skipped = withUpdates.filter((c) => excluded.has(nameOf(c).toLowerCase())).map(nameOf);\n\t\t\tif (!todo.length) {\n\t\t\t\tif (s.scheduled) return { ...done(s, ''), silent: true };\n\t\t\t\treturn done(s, `✅ Nothing to update.${skipped.length ? `\\nSkipped (excluded): ${esc(skipped.join(', '))}` : ''}`);\n\t\t\t}\n\t\t\treturn next({ ...s, skipped }, 'updated', { query: M.dockerUpdateMany, variables: { ids: todo.map((c) => c.id) } });\n\t\t}\n\t\tcase 'updated':\n\t\t\treturn done(s, fmtUpdated(s, d.docker?.updateContainers ?? []));\n\t\tcase 'update.resolved':\n\t\tcase 'restart.resolved':\n\t\tcase 'start.resolved':\n\t\tcase 'stop.resolved':\n\t\tcase 'logs.resolved': {\n\t\t\tconst list = containers();\n\t\t\tconst ids = [];\n\t\t\tfor (const n of s.names ?? []) {\n\t\t\t\tconst m = matchContainer(list, n);\n\t\t\t\tif (!m) return done(s, `❌ ${esc(s.action)} <b>${esc(n)}</b> failed: no container with that name. See /containers`);\n\t\t\t\tids.push(m.id);\n\t\t\t}\n\t\t\tif (s.action === 'update') return next(s, 'updated', { query: M.dockerUpdateMany, variables: { ids } });\n\t\t\tif (s.action === 'logs') return next(s, 'logs.done', { query: Q.containerLogs, variables: { id: ids[0], tail: Number(s.cfg?.logLines ?? 30) } });\n\t\t\tconst op = s.action;\n\t\t\treturn next({ ...s, container: s.names[0] }, 'action.done', { query: M.dockerAction(op), variables: { id: ids[0] } });\n\t\t}\n\t\tcase 'action.done': {\n\t\t\tconst c = d.docker?.[s.action];\n\t\t\tconst verb = { restart: 'Restarted', start: 'Started', stop: 'Stopped' }[s.action];\n\t\t\treturn done(s, `✅ ${verb} <b>${esc(nameOf(c))}</b> — ${esc(String(c.state).toLowerCase())} (${esc(c.status)})`);\n\t\t}\n\t\tcase 'logs.done': {\n\t\t\tconst logs = d.docker?.logs ?? { lines: [] };\n\t\t\tconst name = s.names[0];\n\t\t\tconst lines = R.filterLogLines(logs.lines.map((l) => ({ timestamp: l.timestamp, line: l.message })), { analyze: true, minSeverity: 'all' });\n\t\t\tconst mark = { critical: '🔴', warning: '🟠', info: '🔵' };\n\t\t\tlet body = lines.map((l) => `${l.severity ? mark[l.severity] + ' ' : ''}${l.line}`).join('\\n');\n\t\t\tif (body.length > 3000) body = '…' + body.slice(-3000);\n\t\t\tconst flagged = lines.filter((l) => l.severity === 'critical' || l.severity === 'warning');\n\t\t\tconst steps = [...new Set(flagged.flatMap((l) => l.nextSteps ?? []))].slice(0, 3);\n\t\t\treturn done(s, clip([\n\t\t\t\t`📜 <b>${esc(name)}</b> — last ${lines.length} line(s)${flagged.length ? `, ${flagged.length} flagged` : ''}`,\n\t\t\t\t`<pre>${esc(body) || '(empty)'}</pre>`,\n\t\t\t\tsteps.length ? '<b>Next steps</b>\\n' + steps.map((x, i) => `${i + 1}. ${esc(x)}`).join('\\n') : '',\n\t\t\t\t`/restart_${cmd(name)}  /containers`,\n\t\t\t].filter(Boolean).join('\\n\\n')));\n\t\t}\n\t\tdefault:\n\t\t\treturn done(s, `❌ Unknown stage ${esc(s.stage)}`);\n\t}\n}\nconst SYSLOG_QUERY = `query ($path: String!, $lines: Int, $startLine: Int) {\n\tinfo { os { hostname } }\n\tlogFile(path: $path, lines: $lines, startLine: $startLine) { path content totalLines startLine }\n}`;\nfunction syslogRequest(cfg, store) {\n\tconst path = cfg?.logPath || '/var/log/syslog';\n\tconst last = store.syslogLast;\n\tif (last === undefined) return { query: SYSLOG_QUERY, variables: { path, lines: 1 } };\n\treturn { query: SYSLOG_QUERY, variables: { path, lines: Number(cfg?.maxLines ?? 2000), startLine: last + 1 } };\n}\nfunction apiDownAlert(cfg, err) {\n\treturn [{\n\t\thostname: 'Unraid', source: 'api', severity: 'critical', key: 'api:unreachable', category: 'api',\n\t\ttitle: 'Unraid API not reachable', details: err,\n\t\tnextSteps: ['Check that the server is up and the WebGUI answers at cfg.unraidUrl.', 'Check the Unraid header credential (x-api-key) is still valid.'],\n\t\tcfg,\n\t}];\n}\nfunction syslogResult(cfg, store, res) {\n\tconst err = apiError(res);\n\tif (err) return apiDownAlert(cfg, err);\n\tconst f = res.data.logFile;\n\tconst hostname = res.data.info?.os?.hostname;\n\tconst last = store.syslogLast;\n\tif (last === undefined) {\n\t\tstore.syslogLast = f.totalLines; // first run: baseline only\n\t\treturn [];\n\t}\n\tif (f.totalLines < last) {\n\t\tstore.syslogLast = 0; // rotated: read the new file from the top next time\n\t\treturn [];\n\t}\n\tconst raw = R.splitLogContent(f.content, f.startLine);\n\tstore.syslogLast = Math.min(f.totalLines, (f.startLine ?? last + 1) + raw.length - 1);\n\tconst minSeverity = cfg?.minSeverity || 'warning';\n\tconst lines = R.filterLogLines(raw, { analyze: true, minSeverity });\n\tif (!lines.length) return [];\n\tconst worst = lines.reduce((acc, l) => (l.severity && R.severityAtLeast(l.severity, acc) ? l.severity : acc), 'info');\n\treturn [{\n\t\thostname, source: 'logFile', path: f.path, severity: worst,\n\t\tcategories: [...new Set(lines.map((l) => l.category).filter(Boolean))],\n\t\tcount: lines.length, nextSteps: [...new Set(lines.flatMap((l) => l.nextSteps ?? []))], lines, cfg,\n\t}];\n}\nfunction healthResult(cfg, store, res) {\n\tconst err = apiError(res);\n\tif (err) return apiDownAlert(cfg, err);\n\tconst ignore = String(cfg?.ignoreContainers ?? '').split(',').map((x) => x.trim()).filter(Boolean);\n\tconst minSeverity = cfg?.minSeverity || 'warning';\n\tconst findings = R.analyzeHealth(res.data, { ignoreContainers: ignore }).filter((f) => R.severityAtLeast(f.severity, minSeverity));\n\tconst previous = store.healthKeys;\n\tstore.healthKeys = findings.map((f) => f.key);\n\tconst known = new Set(previous ?? []); // first run reports existing problems once\n\treturn findings.filter((f) => !known.has(f.key)).map((f) => ({ hostname: res.data.info?.os?.hostname, status: 'new', ...f, cfg }));\n}\n// ---- end of bundle ----\n\nreturn [{ json: sysStep($('Plan').first().json, $input.first().json) }];"
+      },
+      "id": "8dca653f-8a9d-4ed5-a109-301eb5b50586",
+      "name": "Format reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "66967e4e-4531-40b6-ae14-8ccec1ba7350",
+              "leftValue": "={{ $json.menu === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1f2a955b-0ec7-405b-ad0c-3687c5d1be60",
+      "name": "Menu?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "replyKeyboard",
+        "replyKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "/status"
+                  },
+                  {
+                    "text": "/info"
+                  },
+                  {
+                    "text": "/disks"
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "/containers"
+                  },
+                  {
+                    "text": "/updates"
+                  },
+                  {
+                    "text": "/syslog"
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "/notifications"
+                  },
+                  {
+                    "text": "/parity"
+                  },
+                  {
+                    "text": "/help"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "replyKeyboardOptions": {
+          "resize_keyboard": true
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "e5ea48a6-609d-4199-aa38-f2c1fcdfddbf",
+      "name": "Send menu",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        380
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Telegram": {
+      "main": [
+        [
+          {
+            "node": "Bot settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bot settings": {
+      "main": [
+        [
+          {
+            "node": "Parse command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse command": {
+      "main": [
+        [
+          {
+            "node": "Authorized?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorized?": {
+      "main": [
+        [
+          {
+            "node": "Docker command?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not authorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not authorized": {
+      "main": [
+        [
+          {
+            "node": "Send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docker command?": {
+      "main": [
+        [
+          {
+            "node": "Run Docker workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan": {
+      "main": [
+        [
+          {
+            "node": "Call API?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call API?": {
+      "main": [
+        [
+          {
+            "node": "Unraid API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Menu?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unraid API": {
+      "main": [
+        [
+          {
+            "node": "Format reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format reply": {
+      "main": [
+        [
+          {
+            "node": "Send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Menu?": {
+      "main": [
+        [
+          {
+            "node": "Send menu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
